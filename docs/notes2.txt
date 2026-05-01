@@ -1,0 +1,19 @@
+**Sprint Leader:** @agents-orchestrator
+**Sprint Goal:** Deploy standalone GoTeleport instance on Docker Swarm with Ansible/Shell hybrid automation
+**Team Roster:**
+1. @devops-automator - Docker Swarm architecture & CI/CD
+2. @backend-architect - Teleport service design & storage backend
+3. @security-engineer - Security hardening & certificate management
+4. @sre - Observability & production reliability
+5. @infrastructure-maintainer - Host networking (ens3/ens4) & system config
+6. @studio-operations - Documentation & process optimization
+7. @reality-checker - Production readiness certification
+8. @technical-writer - Runbooks & deployment documentation
+**Execution Mode:** Parallel workstreams with daily sync via Agents Orchestrator
+**Deliverable:** Complete Ansible project + Shell scripts + Docker Swarm configs + Documentation
+**Constraint:** Interface ens3 (public), ens4 (VPC internal), no WireGuard needed
+
+**Sprint Goal:** Deploy standalone GoTeleport instance on Docker Swarm with Ansible/Shell hybrid automation
+**Execution Mode:** Parallel workstreams with daily sync via Agents Orchestrator
+**Deliverable:** Complete Ansible project + Shell scripts + Docker Swarm configs + Documentation
+**Constraint:** Interface ens3 (public), ens4 (VPC internal), no WireGuard needed

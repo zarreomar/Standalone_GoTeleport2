@@ -1,0 +1,26 @@
+pi v0.70.6                                                                                                                                                                               
+ escape interrupt · ctrl+c/ctrl+d clear/exit · / commands · ! bash · ctrl+o more                                                                                                          
+ Press ctrl+o to show full startup help and loaded resources.                                                                                                                             
+                                                                                                                                                                                          
+ Pi can explain its own features and look up its docs. Ask it how to use or extend Pi.                                                                                                    
+
+[Skills]                                                                                                                                                                                  
+  agent-browser, autoresearch, building-native-ui, expo-api-routes, expo-cicd-workflows, expo-deployment, expo-dev-client, expo-tailwind-setup, expo-ui-jetpack-compose, expo-ui-swift-ui,
+just-bash, nano-banana, native-data-fetching, qa-device-management, qa-scroll, qa-setup, qa-state-persistence, qa-test-flows, qa-web, slack-web, upgrading-expo, use-dom                  
+
+[Prompts]                                                                                                                                                                                 
+  /co-op, /execute, /plan, /README, /session-cleanup, /task, /update                                                                                                                      
+
+[Extensions]                                                                                                                                                                              
+  ruizrica/agent-pi:agent-banner.ts, ruizrica/agent-pi:agent-chain.ts, ruizrica/agent-pi:agent-nav.ts, ruizrica/agent-pi:agent-team.ts, ruizrica/agent-pi:board-viewer.ts,                
+ruizrica/agent-pi:cleanup-viewer.ts, ruizrica/agent-pi:commander-mcp.ts, ruizrica/agent-pi:commander-tracker.ts, ruizrica/agent-pi:completion-report.ts,                                  
+ruizrica/agent-pi:debug-capture.ts, ruizrica/agent-pi:escape-cancel.ts, ruizrica/agent-pi:file-viewer.ts, ruizrica/agent-pi:footer.ts, ruizrica/agent-pi:lean-tools.ts,                   
+ruizrica/agent-pi:memory-cycle.ts, ruizrica/agent-pi:message-integrity-guard.ts, ruizrica/agent-pi:mode-cycler.ts, ruizrica/agent-pi:network-inspect.ts,                                  
+ruizrica/agent-pi:oauth-provider.ts, ruizrica/agent-pi:pipeline-team.ts, ruizrica/agent-pi:plan-viewer.ts, ruizrica/agent-pi:reports-viewer.ts, ruizrica/agent-pi:research-viewer.ts,     
+ruizrica/agent-pi:safe-port-scan.ts, ruizrica/agent-pi:secure.ts, ruizrica/agent-pi:security-guard.ts, ruizrica/agent-pi:security-news.ts, ruizrica/agent-pi:security-report.ts,          
+ruizrica/agent-pi:send-email.ts, ruizrica/agent-pi:session-replay.ts, ruizrica/agent-pi:sounds.ts, ruizrica/agent-pi:spec-viewer.ts, ruizrica/agent-pi:subagent-widget.ts,                
+ruizrica/agent-pi:system-select.ts, ruizrica/agent-pi:tasks.ts, ruizrica/agent-pi:theme-cycler.ts, ruizrica/agent-pi:tool-caller.ts, ruizrica/agent-pi:tool-registry.ts,                  
+ruizrica/agent-pi:tool-search.ts, ruizrica/agent-pi:toolkit-commands.ts, ruizrica/agent-pi:user-question.ts, ruizrica/agent-pi:web-chat.ts, ruizrica/agent-pi:web-test.ts                 
+
+[Themes]                                                                                                                                                                                  
+  catppuccin-mocha, cyberpunk, dracula, everforest, gruvbox, midnight-ocean, nord, ocean-breeze, rose-pine, synthwave, tokyo-night  

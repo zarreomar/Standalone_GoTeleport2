@@ -1,0 +1,44 @@
+# docker-compose.yml for Docker Swarm Deployment
+# Version 3.8 supports Swarm deployment features like overlays and ingress routing mesh.
+
+version: '3.8'
+
+services:
+  gotTeleport:
+    # Use the image built from the Dockerfile above
+    image: your_registry/teleport:latest
+    container_name: gotTeleport_service
+    ports:
+      # Mapping host ports to container ports. The host machine's network stack will handle the ens3/ens4 binding.
+      - target: 3022
+        published: "3022"
+      - target: 3023
+        published: "3023"
+      - target: 3025
+        published: "3025"
+    volumes:
+      # Persistent storage for service state/logs
+      - /var/lib/teleport:/var/lib/teleport
+    networks:
+      - teleport-net # Internal service discovery network
+    deploy:
+      mode: replicated
+      replicas: 3
+      update_config:
+        parallelism: 2
+        delay: 10s
+      restart_policy:
+        condition: on-failure
+
+# Define networks required for the service stack
+networks:
+  teleport-net:
+    driver: overlay # Enables Swarm overlay networking
+    attachable: true
+    # IMPORTANT: This network is the primary overlay for service-to-service communication.
+  ingress:
+    # This network attachment binds the service endpoint to the cluster's ingress routing mesh.
+    external: true
+    name: ingress 
+
+# Note: The binding of the 'ingress' network to the host interfaces (ens3/ens4) MUST be handled by the host OS configuration or the specific driver settings, as addressed by SA4's plan.

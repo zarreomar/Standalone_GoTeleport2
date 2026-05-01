@@ -1,0 +1,41 @@
+# GoTeleport Configuration File
+# This file configures the standalone GoTeleport instance.
+# This blueprint is based on the cluster membership required for a Swarm deployment.
+
+# --- Core Service Enablement ---
+teleport:
+  nodename: gotTeleport-${HOSTNAME} # Variable populated during deployment to ensure unique identity
+  server_role: "local" # Since it's standalone/testing, it acts as its own server component. Adjust for production cluster membership.
+  # cluster_id: "unique_cluster_id" # Should be managed/fetched dynamically during scale-up.
+
+# --- Service Components ---
+auth_service:
+  enabled: "yes"
+  # For testing, use token validation. In production, this integrates with LDAP/AD/etc.
+  # login_timeout: "5m"
+  # required_authn_methods: ["password", "webauthn"]
+
+ssh_service:
+  enabled: "yes"
+  # Bind host machine to the specific network/interface bindings managed by the Swarm ingress.
+  bind_address: "0.0.0.0" 
+  port: 22 # Or use service port mapping
+  # Auto-provisioning keys should be enabled for CI/CD pipeline automation.
+  auto_provision: "yes"
+
+proxy_service:
+  enabled: "yes"
+  # Use the public endpoint mapped by the Swarm ingress for clients to reach the service.
+  public_addr: "gotTeleport.yourdomain.com:443"
+  
+# --- Data Persistence and Auditing ---
+storage:
+  type: "filesystem"
+  directory: "/var/lib/teleport/backend" # This path must persist across container restarts if using volumes.
+
+# --- Logging ---
+logging:
+  severity: "INFO" # Adjust to WARN/ERROR for production hardening during audits.
+
+# --- Security Note ---
+# In a real production cluster, sensitive data like admin passwords/signing keys should NEVER be in plain text here. They must be injected via secrets management (e.g., Swarm Secrets or external vault).

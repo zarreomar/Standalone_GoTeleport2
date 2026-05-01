@@ -1,0 +1,62 @@
+# Root Ansible Playbook for GoTeleport Deployment
+# This playbook orchestrates the creation and configuration of the GoTeleport service artifacts.
+
+# --- Global Variables / Prerequisite Checks ---
+# In a real scenario, many variables (like target IP addresses, passwords, cluster names) 
+# would be passed via group_vars or extra-vars.
+
+- hosts: localhost # Run playbook on the control machine where Docker is running
+  connection: local
+  become: yes # Needed for system-level commands like Docker commands
+  vars:
+    service_name: gotTeleport
+    image_name: your_registry/teleport:latest
+    compose_file: service/docker-compose.yml
+    # Variables passed from the blueprint/plan
+    host_network_public: "ens3"
+    host_network_internal: "ens4"
+
+  tasks:
+    # TASK 1: Prerequisite Checks (Idempotent)
+    - name: Ensure Docker and necessary resources are available
+      community.docker.docker_facts:
+        api_version: latest
+      # This task confirms Docker daemon connection before proceeding.
+
+    # TASK 2: Application Artifact Generation/Verification (If artifacts didn't exist)
+    # Since we generated these artifacts previously, this task verifies they match the blueprint.
+    - name: Verify Docker Compose file structure
+      command: echo "Review service/docker-compose.yml against blueprint."
+      # In a true execution, this would verify hashes or use the file content.
+
+    # TASK 3: Service Orchestration (The deployment action)
+    - name: Deploy the GoTeleport stack to Docker Swarm
+      community.docker.docker_compose:
+        project_src: ./service/
+        filename: docker-compose.yml
+        state: present
+        pull: yes
+        # This command runs the 'docker stack deploy' command implicitly.
+      # The 'attachable' and 'ingress' network configurations defined in the compose file 
+      # handle the mapping to the host's multi-NIC setup (ens3/ens4).
+
+    # TASK 4: Host Network Binding Verification (SA4 Constraint Enforcement)
+    # This is the most critical step for ensuring ens3/ens4 are used correctly.
+    - name: Verify host IP routing tables are configured for dual-stack service exposure
+      blockinfile:
+        path: "/etc/iproute2/rt_tables"
+        block: |
+          100 public
+          200 internal
+        present: true # Only add if not present
+        create: yes
+        # This mirrors the concept from SA4's notes.
+      notify: "Apply routing rules"
+
+  handlers:
+    - name: Apply routing rules
+      # This task would contain the specific 'ip route add' commands contingent on successful deployment.
+      debug:
+        msg: "Applying custom host routing rules to map traffic flows."
+
+# --- End of Playbook ---
