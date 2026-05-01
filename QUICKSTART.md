@@ -93,7 +93,7 @@ Root script performs:
 - Installs base packages used by the deployment and validation steps
 - Creates `/etc/teleport` and `/var/lib/teleport`
 - Sets up policy routing persistence for `ens3` and `ens4`
-- Opens the required firewall ports with UFW
+- Opens the required firewall ports with UFW and enables it safely if it was inactive
 
 Ubuntu user script performs in two passes:
 - First run adds `ubuntu` to the `docker` group with `sudo` if needed

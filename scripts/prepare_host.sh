@@ -181,8 +181,10 @@ if ufw status | grep -qi active; then
   ufw allow 3023/tcp || true
   ufw allow 3025/tcp || true
 else
-  log "UFW is inactive; enabling it with required ports"
-  ufw allow 22/tcp
+  log "UFW is inactive; configuring defaults and enabling it safely"
+  ufw default deny incoming
+  ufw default allow outgoing
+  ufw allow OpenSSH
   ufw allow 80/tcp
   ufw allow 443/tcp
   ufw allow 3022/tcp
