@@ -27,9 +27,11 @@ yaml_value() {
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 GROUP_VARS_FILE="${ROOT_DIR}/ansible/group_vars/all.yml"
+EXPECTED_USER="${EXPECTED_USER:-ubuntu}"
 
 PUBLIC_IP="${PUBLIC_IP:-}"
 SWARM_SUBNET="${SWARM_SUBNET:-}"
+CURRENT_USER="$(id -un)"
 
 if [[ -f "$GROUP_VARS_FILE" ]]; then
   PUBLIC_IP="${PUBLIC_IP:-$(yaml_value public_ip "$GROUP_VARS_FILE")}"
@@ -40,7 +42,18 @@ fi
 [[ -n "$SWARM_SUBNET" ]] || die "SWARM_SUBNET is not set and could not be read from ansible/group_vars/all.yml"
 
 if [[ ${EUID:-0} -eq 0 ]]; then
-  log "This step should run as the ubuntu user, not root."
+  die "This step should run as the ubuntu user, not root."
+fi
+
+if [[ "$CURRENT_USER" != "$EXPECTED_USER" ]]; then
+  log "This step is intended for user ${EXPECTED_USER}; continuing anyway"
+fi
+
+if ! id -nG "$CURRENT_USER" | tr ' ' '\n' | grep -qx docker; then
+  log "Adding ${CURRENT_USER} to the docker group"
+  sudo usermod -aG docker "$CURRENT_USER"
+  log "Group membership updated. Log out and back in as ${CURRENT_USER}, then run this script again."
+  exit 0
 fi
 
 if ! docker info >/dev/null 2>&1; then

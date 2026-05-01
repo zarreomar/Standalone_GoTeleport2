@@ -63,6 +63,11 @@
   test -x scripts/prepare_host_ubuntu.sh && echo "✓ prepare_host_ubuntu.sh present"
   ```
 
+- [ ] ubuntu user can be added to the docker group on demand
+  ```bash
+  id -nG ubuntu | grep -q docker || echo "ubuntu still needs docker group membership"
+  ```
+
 ### Docker Daemon
 - [ ] Docker is installed and running
   ```bash

@@ -33,7 +33,6 @@ yaml_value() {
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 GROUP_VARS_FILE="${ROOT_DIR}/ansible/group_vars/all.yml"
-DEPLOY_USER="${DEPLOY_USER:-ubuntu}"
 
 PUBLIC_IFACE="${PUBLIC_IFACE:-${HOST_NETWORK_PUBLIC:-ens3}}"
 INTERNAL_IFACE="${INTERNAL_IFACE:-${HOST_NETWORK_INTERNAL:-ens4}}"
@@ -90,13 +89,6 @@ systemctl enable --now docker
 
 if ! docker info >/dev/null 2>&1; then
   die "Docker daemon is not responding"
-fi
-
-if id -u "${DEPLOY_USER}" >/dev/null 2>&1; then
-  log "Adding ${DEPLOY_USER} to the docker group"
-  usermod -aG docker "${DEPLOY_USER}"
-else
-  log "Deploy user ${DEPLOY_USER} does not exist yet; skipping docker group membership update"
 fi
 
 log "Configuring sysctl for container networking"
@@ -200,4 +192,4 @@ else
 fi
 
 log "Host preparation complete"
-log "Next: re-login as ${DEPLOY_USER} and run scripts/prepare_host_ubuntu.sh"
+log "Next: switch to the ubuntu user and run scripts/prepare_host_ubuntu.sh"

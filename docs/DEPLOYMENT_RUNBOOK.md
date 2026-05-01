@@ -72,9 +72,9 @@ The helper installs:
 - UFW
 - iproute2
 - CA certificates and package signing tools
-- The `ubuntu` user is added to the `docker` group by the root step
+- The `ubuntu` user is added to the `docker` group by the ubuntu-step helper if needed
 
-After the root step, re-login as `ubuntu` before running the user step so the new group membership takes effect.
+After the root step, run the ubuntu-step helper once to add `ubuntu` to the `docker` group, then log out and back in as `ubuntu` and run it again to initialize Swarm.
 
 ### Pre-Deployment Checklist
 

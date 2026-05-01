@@ -26,8 +26,9 @@ sudo apt-get install -y ca-certificates curl gnupg lsb-release iproute2 ufw pyth
 
 1. Install the required packages.
 2. Run `sudo bash scripts/prepare_host.sh`.
-3. Re-login as `ubuntu` so docker group membership takes effect.
-4. Run `bash scripts/prepare_host_ubuntu.sh`.
-5. Copy and customize `ansible/group_vars/all.yml`.
-6. Run `ansible-playbook -i localhost, -c local ansible/main.yml --check --diff`.
-7. Deploy for real once the dry-run output is clean.
+3. Run `bash scripts/prepare_host_ubuntu.sh` once to add `ubuntu` to the docker group.
+4. Re-login as `ubuntu` so docker group membership takes effect.
+5. Run `bash scripts/prepare_host_ubuntu.sh` again to initialize Swarm and create the overlay network.
+6. Copy and customize `ansible/group_vars/all.yml`.
+7. Run `ansible-playbook -i localhost, -c local ansible/main.yml --check --diff`.
+8. Deploy for real once the dry-run output is clean.

@@ -88,25 +88,23 @@ Root step:
 Ubuntu user step:
 - `scripts/prepare_host_ubuntu.sh`
 
-After the root step, log out and back in as `ubuntu` so the new `docker` group membership is active.
-
 Root script performs:
 - Installs Docker Engine and the compose/buildx plugins
 - Installs base packages used by the deployment and validation steps
 - Creates `/etc/teleport` and `/var/lib/teleport`
 - Sets up policy routing persistence for `ens3` and `ens4`
 - Opens the required firewall ports with UFW
-- Adds the `ubuntu` user to the `docker` group when present
 
-Ubuntu user script performs:
-- Verifies Docker is usable from the non-root session
-- Initializes Swarm if it is not already active
-- Creates the attachable `teleport-net` overlay network
+Ubuntu user script performs in two passes:
+- First run adds `ubuntu` to the `docker` group with `sudo` if needed
+- After you log out and back in as `ubuntu`, run it again to initialize Swarm and create `teleport-net`
 
 Run them in order when preparing a fresh Ubuntu host:
 
 ```bash
 sudo bash scripts/prepare_host.sh
+bash scripts/prepare_host_ubuntu.sh
+# log out and back in as ubuntu if the first run adds group membership
 bash scripts/prepare_host_ubuntu.sh
 ```
 
@@ -134,8 +132,8 @@ bash scripts/prepare_host_ubuntu.sh
 │
 ├── scripts/
 │   ├── deploy.sh                    # Manual deployment script
-│   ├── prepare_host.sh              # Root-only host package and baseline prep
-│   ├── prepare_host_ubuntu.sh       # Ubuntu user Swarm/bootstrap prep
+│   ├── prepare_host.sh              # Root-only Docker and host baseline prep
+│   ├── prepare_host_ubuntu.sh       # Ubuntu user docker-group and Swarm bootstrap
 │   └── validate.sh                  # Pre-deployment validation
 │
 ├── docs/
