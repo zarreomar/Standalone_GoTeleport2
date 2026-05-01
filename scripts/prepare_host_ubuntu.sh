@@ -49,13 +49,6 @@ if [[ "$CURRENT_USER" != "$EXPECTED_USER" ]]; then
   log "This step is intended for user ${EXPECTED_USER}; continuing anyway"
 fi
 
-if ! id -nG "$CURRENT_USER" | tr ' ' '\n' | grep -qx docker; then
-  log "Adding ${CURRENT_USER} to the docker group"
-  sudo usermod -aG docker "$CURRENT_USER"
-  log "Group membership updated. Log out and back in as ${CURRENT_USER}, then run this script again."
-  exit 0
-fi
-
 if ! docker info >/dev/null 2>&1; then
   die "Docker is not usable for the current user. Re-login after the root prep step so docker group membership takes effect."
 fi

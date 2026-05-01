@@ -72,12 +72,12 @@ The helper installs:
 - UFW
 - iproute2
 - CA certificates and package signing tools
-- The `ubuntu` user is added to the `docker` group by the ubuntu-step helper if needed
+- The root step adds `ubuntu` to the `docker` group when that user exists
 - If UFW is inactive, the root step enables it safely after allowing SSH and the deployment ports
 
 If the host previously used the older `/etc/teleport`-based flow, run `sudo bash scripts/cleanup_host_teleport.sh` before starting this prep sequence.
 
-After the root step, run the ubuntu-step helper once to add `ubuntu` to the `docker` group, then log out and back in as `ubuntu` and run it again to initialize Swarm.
+After the root step, log out and back in as `ubuntu` so the new group membership takes effect, then run the ubuntu-step helper once to initialize Swarm and create `teleport-net`.
 
 ### Pre-Deployment Checklist
 

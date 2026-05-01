@@ -99,17 +99,19 @@ Root script performs:
 - Creates `/var/lib/teleport`
 - Sets up policy routing persistence for `ens3` and `ens4`
 - Opens the required firewall ports with UFW and enables it safely if it was inactive
+- Adds `ubuntu` to the `docker` group when that user exists
 
-Ubuntu user script performs in two passes:
-- First run adds `ubuntu` to the `docker` group with `sudo` if needed
-- After you log out and back in as `ubuntu`, run it again to initialize Swarm and create `teleport-net`
+After the root step, log out and back in as `ubuntu` so the new group membership takes effect.
+
+Ubuntu user script performs:
+- Verifies Docker is usable from the non-root session
+- Initializes Swarm if it is not already active
+- Creates the attachable `teleport-net` overlay network
 
 Run them in order when preparing a fresh Ubuntu host:
 
 ```bash
 sudo bash scripts/prepare_host.sh
-bash scripts/prepare_host_ubuntu.sh
-# log out and back in as ubuntu if the first run adds group membership
 bash scripts/prepare_host_ubuntu.sh
 ```
 

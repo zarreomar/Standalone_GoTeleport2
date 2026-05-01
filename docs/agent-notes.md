@@ -104,13 +104,12 @@ Persistent via `teleport-routes.service` and `/usr/local/sbin/teleport-routes.sh
 ### Before Deploying
 1. Install required host packages: `sudo apt-get install -y ca-certificates curl gnupg lsb-release iproute2 ufw python3-venv`
 2. Run `sudo bash scripts/prepare_host.sh` on a fresh Ubuntu host
-3. Run `bash scripts/prepare_host_ubuntu.sh` once to add `ubuntu` to the docker group
-4. Re-login as `ubuntu` so docker group membership takes effect
-5. Run `bash scripts/prepare_host_ubuntu.sh` again to initialize Swarm and create the overlay network
-6. Copy `ansible/group_vars/all.yml.example` → `ansible/group_vars/all.yml`
-7. Customize variables (public_domain, IPs, subnets)
-8. Run `bash scripts/validate.sh`
-9. Verify all ✓ items pass
+3. Re-login as `ubuntu` so docker group membership takes effect
+4. Run `bash scripts/prepare_host_ubuntu.sh` to initialize Swarm and create the overlay network
+5. Copy `ansible/group_vars/all.yml.example` → `ansible/group_vars/all.yml`
+6. Customize variables (public_domain, IPs, subnets)
+7. Run `bash scripts/validate.sh`
+8. Verify all ✓ items pass
 
 ### Deployment Options
 1. **Ansible (recommended):** `ansible-playbook -i localhost, -c local ansible/main.yml`
