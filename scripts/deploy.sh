@@ -10,12 +10,8 @@ set -euo pipefail # Exit immediately if a command exits with a non-zero status, 
 echo "--- Starting GoTeleport Service Deployment Sequence ---"
 
 # 1. BUILD STAGE (If artifacts are not already present)
-# If the image does not exist locally, we build it using the official blueprint.
-echo "STEP 1/3: Building the Docker image from Dockerfile..."
-# IMPORTANT: Ensure you are in the directory containing the Dockerfile when running this.
-# docker build -t your_registry/teleport:latest . 
-
-# --- NOTE: For the first run, you MUST build the image first. ---
+# Teleport now uses the official Community Edition image from Amazon ECR Public.
+echo "STEP 1/3: Using public.ecr.aws/gravitational/teleport-distroless:18.7.2"
 
 # 2. INFRASTRUCTURE STACK DEPLOYMENT (SA3 Blueprint)
 echo "STEP 2/3: Deploying the stack to Swarm..."

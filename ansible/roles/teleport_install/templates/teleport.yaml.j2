@@ -1,5 +1,5 @@
 # GoTeleport Configuration Template
-# Variables from group_vars or extra-vars will populate {{ }} placeholders
+# Variables from group_vars or extra-vars will populate Jinja placeholders
 
 teleport:
   nodename: gotTeleport-{{ inventory_hostname }}
@@ -18,7 +18,7 @@ ssh_service:
   bind_address: "0.0.0.0:22"
   auto_provision: "yes"
   labels:
-    env: "{{ environment | default('production') }}"
+    env: "{{ deploy_environment | default('production') }}"
     cluster: "{{ cluster_name | default('gotTeleport-cluster') }}"
 
 proxy_service:

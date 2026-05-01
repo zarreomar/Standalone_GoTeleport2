@@ -19,18 +19,33 @@ cp ansible/group_vars/all.yml.example ansible/group_vars/all.yml
 vi ansible/group_vars/all.yml
 ```
 
-### 2. Configure Essential Variables
+### 2. Install Required Packages
+
+On the target Ubuntu host, run:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y ca-certificates curl gnupg lsb-release iproute2 ufw python3-venv
+```
+
+If Docker is not installed yet, run the host-prep helper from the repo root:
+
+```bash
+sudo bash scripts/prepare_host.sh
+```
+
+### 3. Configure Essential Variables
 
 ```yaml
 # Required values to change:
-image_name: "your_registry/teleport:latest"
+image_name: "public.ecr.aws/gravitational/teleport-distroless:18.7.2"
 public_domain: "goteleport.yourdomain.com"
 acme_email: "admin@yourdomain.com"
 public_ip: "203.0.113.10"           # Your ens3 IP
 internal_ip: "10.100.50.10"         # Your ens4 IP
 ```
 
-### 3. Run Validation
+### 4. Run Validation
 
 ```bash
 bash scripts/validate.sh
@@ -39,7 +54,7 @@ bash scripts/validate.sh
 # Address any ✗ issues before proceeding
 ```
 
-### 4. Deploy
+### 5. Deploy
 
 ```bash
 # Option A: Using Ansible (recommended)
@@ -49,7 +64,7 @@ ansible-playbook -i localhost, -c local ansible/main.yml
 bash scripts/deploy.sh
 ```
 
-### 5. Verify
+### 6. Verify
 
 ```bash
 # Check service status
@@ -58,6 +73,26 @@ docker service ps gotTeleport_stack_gotTeleport
 
 # Test connectivity
 curl -k https://goteleport.yourdomain.com
+```
+
+---
+
+## Host Prep Script
+
+The repository now includes `scripts/prepare_host.sh` to install the missing host dependencies and configure the base machine for deployment.
+
+It performs the following:
+- Installs Docker Engine and the compose/buildx plugins
+- Installs base packages used by the deployment and validation steps
+- Enables Swarm if it is not already active
+- Creates `/etc/teleport` and `/var/lib/teleport`
+- Sets up policy routing persistence for `ens3` and `ens4`
+- Opens the required firewall ports with UFW
+
+Run it before the playbook when preparing a fresh Ubuntu host:
+
+```bash
+sudo bash scripts/prepare_host.sh
 ```
 
 ---
@@ -84,6 +119,7 @@ curl -k https://goteleport.yourdomain.com
 │
 ├── scripts/
 │   ├── deploy.sh                    # Manual deployment script
+│   ├── prepare_host.sh              # Host package and baseline prep
 │   └── validate.sh                  # Pre-deployment validation
 │
 ├── docs/

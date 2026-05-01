@@ -51,8 +51,8 @@ services:
         max_attempts: 5
 
   gotTeleport:
-    # Use the image built from the Dockerfile above
-    image: your_registry/teleport:latest
+    # Use the official Teleport Community Edition image.
+    image: "{{ image_name }}"
     container_name: gotTeleport_service
     ports:
       # Traefik handles 80/443, internal ports exposed for direct service access if needed

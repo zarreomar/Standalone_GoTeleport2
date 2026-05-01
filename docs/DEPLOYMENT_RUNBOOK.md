@@ -49,6 +49,29 @@ This runbook guides the deployment of a **standalone GoTeleport instance** onto 
 - **Storage:** Minimum 50GB available for `/var/lib/teleport`
 - **DNS:** Public domain with A record pointing to `ens3` public IP
 
+### Required Packages
+
+If you are starting from a fresh Ubuntu host, install the baseline packages first:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y ca-certificates curl gnupg lsb-release iproute2 ufw python3-venv
+```
+
+If Docker is missing, the repository includes a helper that installs Docker and configures the host baseline:
+
+```bash
+sudo bash scripts/prepare_host.sh
+```
+
+The helper installs:
+- Docker Engine
+- Docker Compose V2 plugin
+- Docker Buildx plugin
+- UFW
+- iproute2
+- CA certificates and package signing tools
+
 ### Pre-Deployment Checklist
 
 ```bash
@@ -136,6 +159,13 @@ ip route show table internal
 ```bash
 # Source deployment variables
 source deployment.vars
+
+# Install required packages if needed
+sudo apt-get update
+sudo apt-get install -y ca-certificates curl gnupg lsb-release iproute2 ufw python3-venv
+
+# Or use the repository helper to install Docker and baseline config
+sudo bash scripts/prepare_host.sh
 
 # Create teleport configuration directory
 sudo mkdir -p /etc/teleport

@@ -5,8 +5,8 @@
 - name: Verify host network interfaces exist
   ansible.builtin.assert:
     that:
-      - ansible_{{ host_network_public }} is defined
-      - ansible_{{ host_network_internal }} is defined
+      - vars['ansible_' ~ host_network_public] is defined
+      - vars['ansible_' ~ host_network_internal] is defined
     fail_msg: "Required network interfaces ({{ host_network_public }}/{{ host_network_internal }}) not found"
 
 - name: Create routing policy database entries

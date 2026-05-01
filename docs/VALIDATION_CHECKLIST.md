@@ -51,6 +51,17 @@
 
 ## Phase 2: Docker Installation & Configuration
 
+### Required Host Packages
+- [ ] Base packages are installed
+  ```bash
+  dpkg -l | grep -E 'ca-certificates|curl|gnupg|lsb-release|iproute2|ufw|python3-venv'
+  ```
+
+- [ ] Docker helper script is available
+  ```bash
+  test -x scripts/prepare_host.sh && echo "✓ prepare_host.sh present"
+  ```
+
 ### Docker Daemon
 - [ ] Docker is installed and running
   ```bash
@@ -360,6 +371,11 @@
 - [ ] Run Ansible in check mode (no changes)
   ```bash
   ansible-playbook -i localhost, -c local ansible/main.yml --check --diff
+  ```
+
+- [ ] Host prep script has been reviewed or executed on the target host
+  ```bash
+  test -x scripts/prepare_host.sh && echo "✓ prepare_host.sh present"
   ```
 
 - [ ] Review what changes will be made

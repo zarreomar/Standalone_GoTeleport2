@@ -31,7 +31,7 @@
           Domain: {{ public_domain }}
           Service: {{ service_name }}
           Replicas: {{ replicas | default(3) }}
-          Environment: {{ environment | default('production') }}
+          Environment: {{ deploy_environment | default('production') }}
           Public IP (ens3): {{ public_ip }}
           Internal IP (ens4): {{ internal_ip }}
           ======================================
@@ -56,71 +56,66 @@
       failed_when: swarm_status.rc != 0
 
     - name: Create Docker overlay network for services
-      community.docker.docker_network:
-        name: teleport-net
-        driver: overlay
-        attachable: true
-        state: present
+      ansible.builtin.shell:
+        cmd: docker network inspect teleport-net >/dev/null 2>&1 || docker network create --driver overlay --attachable teleport-net
+      register: overlay_network
+      changed_when: overlay_network.rc == 0
 
-    - name: Build GoTeleport Docker image
-      community.docker.docker_image:
-        name: "{{ image_name }}"
-        build:
-          path: service/
-          dockerfile: Dockerfile
-        state: present
-      register: image_build
-      tags:
-        - build
+    - name: Render stack compose file
+      ansible.builtin.template:
+        src: "{{ playbook_dir }}/../service/docker-compose.yml"
+        dest: /tmp/goteleport-docker-compose.yml
+        mode: '0644'
 
     - name: Deploy stack using docker stack deploy
       ansible.builtin.shell:
-        cmd: docker stack deploy -c service/docker-compose.yml gotTeleport_stack
+        cmd: docker stack deploy -c /tmp/goteleport-docker-compose.yml gotTeleport_stack
       environment:
         COMPOSE_PARALLEL_PUSH: 1
       register: stack_deploy
       changed_when: "'Ignoring unsupported' not in stack_deploy.stderr"
 
     - name: Wait for stack services to be deployed
-      community.docker.docker_service_info:
-        name: "{{ service_name }}"
+      ansible.builtin.shell:
+        cmd: docker service ps gotTeleport_stack_{{ service_name }} | grep -q Running
       register: service_info
-      until:
-        - service_info.exists | bool
-        - service_info.service.ServiceStatus.RunningCount | default(0) | int > 0
       retries: 20
       delay: 10
+      until: service_info.rc == 0
 
     - name: Verify stack deployment
       ansible.builtin.shell:
         cmd: docker stack ps gotTeleport_stack
       register: stack_status
       changed_when: false
+      when: not ansible_check_mode
 
     - name: Display service status
       ansible.builtin.debug:
         msg: "{{ stack_status.stdout_lines }}"
+      when: not ansible_check_mode
 
     - name: Health check - verify service replicas
       ansible.builtin.assert:
         that:
           - "'Running' in stack_status.stdout"
         fail_msg: "Service failed to start. Check logs: docker service logs gotTeleport_stack_gotTeleport"
+      when: not ansible_check_mode
 
     - name: Wait for health checks to pass
       ansible.builtin.pause:
         seconds: 30
         prompt: "Waiting for health checks to stabilize..."
+      when: not ansible_check_mode
 
     - name: Verify service connectivity
       ansible.builtin.shell:
-        cmd: |
-          docker exec $(docker ps -f "label=com.docker.swarm.service.name=gotTeleport_stack_gotTeleport" -q | head -1) \
-            curl -s -o /dev/null -w "%{http_code}" http://localhost:3025/health || echo "0"
+        cmd: curl -s -o /dev/null -w "%{http_code}" http://localhost:3025/health || echo "0"
       register: health_check
       retries: 5
       delay: 10
       until: health_check.stdout == "200"
+      when: not ansible_check_mode
 
     - name: Display deployment summary
       ansible.builtin.debug:
@@ -140,6 +135,7 @@
           4. Test connectivity: curl -k https://{{ public_domain }}
           ======================================
         verbosity: 0
+      when: not ansible_check_mode
 
   post_tasks:
     - name: Create rollback snapshot

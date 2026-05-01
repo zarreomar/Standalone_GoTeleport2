@@ -3,9 +3,10 @@
 # Orchestrates the deployment of GoTeleport to Docker Swarm
 
 - name: Verify Docker daemon is accessible
-  community.docker.docker_info:
+  ansible.builtin.command:
+    cmd: docker info
   register: docker_info
-  failed_when: docker_info.host_os is not defined
+  changed_when: false
 
 - name: Create teleport config directory
   ansible.builtin.file:
@@ -19,33 +20,8 @@
     dest: /etc/teleport/teleport.yaml
     mode: '0644'
 
-- name: Build GoTeleport Docker image
-  community.docker.docker_image:
-    name: "{{ image_name }}"
-    build:
-      path: .
-      dockerfile: service/Dockerfile
-    state: present
-  register: build_result
-
-- name: Deploy GoTeleport stack to Docker Swarm
-  community.docker.docker_compose:
-    project_src: ./service/
-    filename: docker-compose.yml
-    state: present
-    pull: yes
-  register: stack_deploy
-
-- name: Wait for GoTeleport service to be healthy
-  community.docker.docker_service_info:
-    name: "{{ service_name }}"
-  register: service_info
-  until: service_info.exists | bool
-  retries: 10
-  delay: 6
-
-- name: Verify service replicas are running
-  ansible.builtin.assert:
-    that:
-      - service_info.service.Spec.Mode.Replicated.Replicas | int > 0
-    fail_msg: "No running GoTeleport replicas detected"
+- name: Ensure Teleport data directory exists
+  ansible.builtin.file:
+    path: /var/lib/teleport
+    state: directory
+    mode: '0755'
