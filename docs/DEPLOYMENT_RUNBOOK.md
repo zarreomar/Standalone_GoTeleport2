@@ -75,6 +75,8 @@ The helper installs:
 - The `ubuntu` user is added to the `docker` group by the ubuntu-step helper if needed
 - If UFW is inactive, the root step enables it safely after allowing SSH and the deployment ports
 
+If the host previously used the older `/etc/teleport`-based flow, run `sudo bash scripts/cleanup_host_teleport.sh` before starting this prep sequence.
+
 After the root step, run the ubuntu-step helper once to add `ubuntu` to the `docker` group, then log out and back in as `ubuntu` and run it again to initialize Swarm.
 
 ### Pre-Deployment Checklist
@@ -173,10 +175,6 @@ sudo apt-get install -y ca-certificates curl gnupg lsb-release iproute2 ufw pyth
 sudo bash scripts/prepare_host.sh
 bash scripts/prepare_host_ubuntu.sh
 
-# Create teleport configuration directory
-sudo mkdir -p /etc/teleport
-sudo mkdir -p /var/lib/teleport/{backend,log}
-
 # Set correct permissions
 sudo chown -R 1000:1000 /var/lib/teleport
 sudo chmod -R 0755 /var/lib/teleport
@@ -267,17 +265,7 @@ sudo ip rule add from ${INTERNAL_IP} table internal
 sudo ip route add ${SWARM_SUBNET} dev ens3 table public
 sudo ip route add ${INTERNAL_SUBNET} dev ens4 table internal
 
-# Persist routing rules
-sudo tee /etc/network/if-up.d/teleport-routes <<'SCRIPT'
-#!/bin/bash
-source /etc/teleport/routes.env
-ip rule add from ${PUBLIC_IP} table public 2>/dev/null
-ip rule add from ${INTERNAL_IP} table internal 2>/dev/null
-ip route add ${SWARM_SUBNET} dev ens3 table public 2>/dev/null
-ip route add ${INTERNAL_SUBNET} dev ens4 table internal 2>/dev/null
-SCRIPT
-
-sudo chmod +x /etc/network/if-up.d/teleport-routes
+# Persist routing rules are handled by the root prep script
 ```
 
 ---
@@ -418,7 +406,7 @@ curl -k --interface ens4 https://${INTERNAL_IP}:3023
 ```bash
 # Reapply routing configuration
 source deployment.vars
-sudo /etc/network/if-up.d/teleport-routes
+sudo systemctl start teleport-routes.service
 
 # Reload networking
 sudo systemctl restart networking

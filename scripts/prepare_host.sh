@@ -100,7 +100,6 @@ EOF
 sysctl --system >/dev/null
 
 log "Creating Teleport directories"
-install -d -m 0755 /etc/teleport
 install -d -m 0755 /var/lib/teleport
 install -d -m 0755 /var/lib/teleport/backend
 install -d -m 0755 /var/lib/teleport/log
@@ -115,7 +114,8 @@ fi
 
 log "Writing routing helper"
 install -d -m 0755 /usr/local/sbin
-cat >/etc/teleport/routes.env <<EOF
+install -d -m 0755 /etc/default
+cat >/etc/default/goteleport-routes.env <<EOF
 PUBLIC_IFACE=${PUBLIC_IFACE}
 INTERNAL_IFACE=${INTERNAL_IFACE}
 PUBLIC_IP=${PUBLIC_IP}
@@ -127,7 +127,7 @@ cat >/usr/local/sbin/teleport-routes.sh <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 
-source /etc/teleport/routes.env
+source /etc/default/goteleport-routes.env
 
 ensure_route() {
   local table="$1"

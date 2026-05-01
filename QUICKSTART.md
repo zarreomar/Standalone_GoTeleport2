@@ -88,10 +88,15 @@ Root step:
 Ubuntu user step:
 - `scripts/prepare_host_ubuntu.sh`
 
+Cleanup step:
+- `scripts/cleanup_host_teleport.sh`
+
+Run the cleanup step if this host ever had the older `/etc/teleport`-based setup, or if you want to reset the host before re-running the Docker-first prep.
+
 Root script performs:
 - Installs Docker Engine and the compose/buildx plugins
 - Installs base packages used by the deployment and validation steps
-- Creates `/etc/teleport` and `/var/lib/teleport`
+- Creates `/var/lib/teleport`
 - Sets up policy routing persistence for `ens3` and `ens4`
 - Opens the required firewall ports with UFW and enables it safely if it was inactive
 
@@ -106,6 +111,12 @@ sudo bash scripts/prepare_host.sh
 bash scripts/prepare_host_ubuntu.sh
 # log out and back in as ubuntu if the first run adds group membership
 bash scripts/prepare_host_ubuntu.sh
+```
+
+If you need to reset stale host-side Teleport artifacts first, run:
+
+```bash
+sudo bash scripts/cleanup_host_teleport.sh
 ```
 
 ---
@@ -132,6 +143,7 @@ bash scripts/prepare_host_ubuntu.sh
 │
 ├── scripts/
 │   ├── deploy.sh                    # Manual deployment script
+│   ├── cleanup_host_teleport.sh     # Removes old host-side Teleport artifacts
 │   ├── prepare_host.sh              # Root-only Docker and host baseline prep
 │   ├── prepare_host_ubuntu.sh       # Ubuntu user docker-group and Swarm bootstrap
 │   └── validate.sh                  # Pre-deployment validation

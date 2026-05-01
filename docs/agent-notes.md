@@ -60,7 +60,7 @@
 Incoming packet from ens3 → Check policy table → Route via public routing table
 Incoming packet from ens4 → Check policy table → Route via internal routing table
 ```
-Persistent via `/etc/network/if-up.d/teleport-routes` hook.
+Persistent via `teleport-routes.service` and `/usr/local/sbin/teleport-routes.sh`.
 
 ### Health Check Strategy
 - Traefik: Global mode (runs on all manager nodes)

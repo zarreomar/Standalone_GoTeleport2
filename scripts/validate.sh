@@ -38,7 +38,6 @@ check_cmd "docker CLI available" "command -v docker"
 check_cmd "docker daemon responsive" "docker info"
 
 echo "[5/8] Host paths"
-check_cmd "/etc/teleport exists" "test -d /etc/teleport"
 check_cmd "/var/lib/teleport exists" "test -d /var/lib/teleport"
 check_cmd "routing helper present" "test -x /usr/local/sbin/teleport-routes.sh"
 
