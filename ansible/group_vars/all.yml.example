@@ -1,0 +1,50 @@
+---
+# Global Variables for GoTeleport Deployment
+# Copy this file to ansible/group_vars/all.yml and fill in with your values
+
+# Docker Image Configuration
+image_name: "your_registry/teleport:latest"
+
+# Domain and SSL
+public_domain: "goteleport.yourdomain.com"
+acme_email: "admin@yourdomain.com"
+
+# Host Network Interfaces
+host_network_public: "ens3"
+host_network_internal: "ens4"
+public_ip: "203.0.113.10"        # Replace with actual ens3 IP
+internal_ip: "10.100.50.10"      # Replace with actual ens4 IP
+
+# Network Subnets
+swarm_subnet: "10.0.9.0/24"
+internal_subnet: "172.16.0.0/12"
+
+# Teleport Service Configuration
+service_name: "gotTeleport"
+cluster_name: "goteleport-prod"
+environment: "production"
+log_severity: "INFO"
+session_recording: "all"
+
+# Service Deployment
+replicas: 3
+update_parallelism: 1
+update_delay: "30s"
+health_check_interval: "30s"
+health_check_timeout: "10s"
+health_check_path: "/health"
+
+# Storage Configuration
+storage_path: "/var/lib/teleport"
+storage_type: "dir"
+
+# Optional: Docker Registry Credentials (if using private registry)
+# registry_username: "your_username"
+# registry_password: "your_password"
+# registry_email: "your_email@example.com"
+
+# Optional: Slack/Monitoring Notifications
+# notification_webhook: "https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
+# alert_threshold_cpu: 80
+# alert_threshold_memory: 85
+# alert_threshold_disk: 90

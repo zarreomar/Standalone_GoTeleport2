@@ -4,41 +4,102 @@
 version: '3.8'
 
 services:
+  # Traefik Reverse Proxy - Handles SSL/TLS termination and routing
+  traefik:
+    image: traefik:v3.0
+    container_name: traefik
+    command:
+      - "--api.insecure=false"
+      - "--api.dashboard=true"
+      - "--entryPoints.web.address=:80"
+      - "--entryPoints.websecure.address=:443"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.swarmMode=true"
+      - "--certificatesresolvers.letsencrypt.acme.email={{ acme_email }}"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/etc/traefik/acme.json"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
+    ports:
+      - target: 80
+        published: 80
+        mode: host
+      - target: 443
+        published: 443
+        mode: host
+      - target: 8080
+        published: 8080
+        protocol: tcp
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - traefik-certs:/etc/traefik/
+    networks:
+      - teleport-net
+    deploy:
+      mode: global
+      placement:
+        constraints:
+          - node.role == manager
+      labels:
+        traefik.enable: "true"
+        traefik.http.routers.traefik.rule: "Host(`traefik.{{ public_domain }}`)"
+        traefik.http.routers.traefik.entrypoints: websecure
+        traefik.http.routers.traefik.service: api@internal
+        traefik.http.routers.traefik.tls.certresolver: letsencrypt
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 5
+
   gotTeleport:
     # Use the image built from the Dockerfile above
     image: your_registry/teleport:latest
     container_name: gotTeleport_service
     ports:
-      # Mapping host ports to container ports. The host machine's network stack will handle the ens3/ens4 binding.
+      # Traefik handles 80/443, internal ports exposed for direct service access if needed
       - target: 3022
         published: "3022"
-      - target: 3023
-        published: "3023"
+        protocol: tcp
       - target: 3025
         published: "3025"
+        protocol: tcp
     volumes:
       # Persistent storage for service state/logs
-      - /var/lib/teleport:/var/lib/teleport
+      - teleport-data:/var/lib/teleport
     networks:
       - teleport-net # Internal service discovery network
+    environment:
+      - TELEPORT_CONFIG=/etc/teleport/teleport.yaml
     deploy:
       mode: replicated
       replicas: 3
       update_config:
-        parallelism: 2
-        delay: 10s
+        parallelism: 1
+        delay: 30s
       restart_policy:
         condition: on-failure
+        delay: 5s
+        max_attempts: 5
+      labels:
+        traefik.enable: "true"
+        traefik.http.routers.gotTeleport.rule: "Host(`{{ public_domain }}`)"
+        traefik.http.routers.gotTeleport.entrypoints: websecure
+        traefik.http.routers.gotTeleport.service: gotTeleport-svc
+        traefik.http.routers.gotTeleport.tls.certresolver: letsencrypt
+        traefik.http.services.gotTeleport-svc.loadbalancer.server.port: "3023"
+        traefik.http.services.gotTeleport-svc.loadbalancer.healthcheck.path: "/health"
+        traefik.http.services.gotTeleport-svc.loadbalancer.healthcheck.interval: "30s"
 
 # Define networks required for the service stack
 networks:
   teleport-net:
-    driver: overlay # Enables Swarm overlay networking
+    driver: overlay
     attachable: true
-    # IMPORTANT: This network is the primary overlay for service-to-service communication.
-  ingress:
-    # This network attachment binds the service endpoint to the cluster's ingress routing mesh.
-    external: true
-    name: ingress 
+    driver_opts:
+      # Bind overlay network to specific host interfaces if needed
+      com.docker.network.driver.mtu: 1450
 
-# Note: The binding of the 'ingress' network to the host interfaces (ens3/ens4) MUST be handled by the host OS configuration or the specific driver settings, as addressed by SA4's plan.
+volumes:
+  traefik-certs:
+    driver: local
+  teleport-data:
+    driver: local

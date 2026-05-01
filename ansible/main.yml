@@ -1,62 +1,177 @@
-# Root Ansible Playbook for GoTeleport Deployment
-# This playbook orchestrates the creation and configuration of the GoTeleport service artifacts.
+---
+# Root Ansible Playbook for GoTeleport Docker Swarm Deployment
+# Orchestrates complete deployment from prerequisites through verification
 
-# --- Global Variables / Prerequisite Checks ---
-# In a real scenario, many variables (like target IP addresses, passwords, cluster names) 
-# would be passed via group_vars or extra-vars.
-
-- hosts: localhost # Run playbook on the control machine where Docker is running
+- name: GoTeleport Docker Swarm Deployment
+  hosts: localhost
   connection: local
-  become: yes # Needed for system-level commands like Docker commands
-  vars:
-    service_name: gotTeleport
-    image_name: your_registry/teleport:latest
-    compose_file: service/docker-compose.yml
-    # Variables passed from the blueprint/plan
-    host_network_public: "ens3"
-    host_network_internal: "ens4"
+  become: yes
+  gather_facts: yes
+
+  pre_tasks:
+    - name: Validate required variables are defined
+      ansible.builtin.assert:
+        that:
+          - image_name is defined
+          - public_domain is defined
+          - acme_email is defined
+          - public_ip is defined
+          - internal_ip is defined
+          - swarm_subnet is defined
+          - internal_subnet is defined
+        fail_msg: "Required variables not found. See ansible/group_vars/all.yml.example"
+
+    - name: Display deployment configuration
+      ansible.builtin.debug:
+        msg: |
+          ======================================
+          GoTeleport Deployment Configuration
+          ======================================
+          Image: {{ image_name }}
+          Domain: {{ public_domain }}
+          Service: {{ service_name }}
+          Replicas: {{ replicas | default(3) }}
+          Environment: {{ environment | default('production') }}
+          Public IP (ens3): {{ public_ip }}
+          Internal IP (ens4): {{ internal_ip }}
+          ======================================
+
+  roles:
+    - role: teleport_install
+      tags:
+        - install
+        - services
+
+    - role: network_setup
+      tags:
+        - networking
+        - routing
 
   tasks:
-    # TASK 1: Prerequisite Checks (Idempotent)
-    - name: Ensure Docker and necessary resources are available
-      community.docker.docker_facts:
-        api_version: latest
-      # This task confirms Docker daemon connection before proceeding.
+    - name: Verify Docker Swarm is initialized
+      ansible.builtin.shell:
+        cmd: docker info | grep -i "swarm.*active"
+      register: swarm_status
+      changed_when: false
+      failed_when: swarm_status.rc != 0
 
-    # TASK 2: Application Artifact Generation/Verification (If artifacts didn't exist)
-    # Since we generated these artifacts previously, this task verifies they match the blueprint.
-    - name: Verify Docker Compose file structure
-      command: echo "Review service/docker-compose.yml against blueprint."
-      # In a true execution, this would verify hashes or use the file content.
-
-    # TASK 3: Service Orchestration (The deployment action)
-    - name: Deploy the GoTeleport stack to Docker Swarm
-      community.docker.docker_compose:
-        project_src: ./service/
-        filename: docker-compose.yml
+    - name: Create Docker overlay network for services
+      community.docker.docker_network:
+        name: teleport-net
+        driver: overlay
+        attachable: true
         state: present
-        pull: yes
-        # This command runs the 'docker stack deploy' command implicitly.
-      # The 'attachable' and 'ingress' network configurations defined in the compose file 
-      # handle the mapping to the host's multi-NIC setup (ens3/ens4).
 
-    # TASK 4: Host Network Binding Verification (SA4 Constraint Enforcement)
-    # This is the most critical step for ensuring ens3/ens4 are used correctly.
-    - name: Verify host IP routing tables are configured for dual-stack service exposure
-      blockinfile:
-        path: "/etc/iproute2/rt_tables"
-        block: |
-          100 public
-          200 internal
-        present: true # Only add if not present
-        create: yes
-        # This mirrors the concept from SA4's notes.
-      notify: "Apply routing rules"
+    - name: Build GoTeleport Docker image
+      community.docker.docker_image:
+        name: "{{ image_name }}"
+        build:
+          path: service/
+          dockerfile: Dockerfile
+        state: present
+      register: image_build
+      tags:
+        - build
 
-  handlers:
-    - name: Apply routing rules
-      # This task would contain the specific 'ip route add' commands contingent on successful deployment.
-      debug:
-        msg: "Applying custom host routing rules to map traffic flows."
+    - name: Deploy stack using docker stack deploy
+      ansible.builtin.shell:
+        cmd: docker stack deploy -c service/docker-compose.yml gotTeleport_stack
+      environment:
+        COMPOSE_PARALLEL_PUSH: 1
+      register: stack_deploy
+      changed_when: "'Ignoring unsupported' not in stack_deploy.stderr"
 
-# --- End of Playbook ---
+    - name: Wait for stack services to be deployed
+      community.docker.docker_service_info:
+        name: "{{ service_name }}"
+      register: service_info
+      until:
+        - service_info.exists | bool
+        - service_info.service.ServiceStatus.RunningCount | default(0) | int > 0
+      retries: 20
+      delay: 10
+
+    - name: Verify stack deployment
+      ansible.builtin.shell:
+        cmd: docker stack ps gotTeleport_stack
+      register: stack_status
+      changed_when: false
+
+    - name: Display service status
+      ansible.builtin.debug:
+        msg: "{{ stack_status.stdout_lines }}"
+
+    - name: Health check - verify service replicas
+      ansible.builtin.assert:
+        that:
+          - "'Running' in stack_status.stdout"
+        fail_msg: "Service failed to start. Check logs: docker service logs gotTeleport_stack_gotTeleport"
+
+    - name: Wait for health checks to pass
+      ansible.builtin.pause:
+        seconds: 30
+        prompt: "Waiting for health checks to stabilize..."
+
+    - name: Verify service connectivity
+      ansible.builtin.shell:
+        cmd: |
+          docker exec $(docker ps -f "label=com.docker.swarm.service.name=gotTeleport_stack_gotTeleport" -q | head -1) \
+            curl -s -o /dev/null -w "%{http_code}" http://localhost:3025/health || echo "0"
+      register: health_check
+      retries: 5
+      delay: 10
+      until: health_check.stdout == "200"
+
+    - name: Display deployment summary
+      ansible.builtin.debug:
+        msg: |
+          ======================================
+          ✓ Deployment Successful
+          ======================================
+          Traefik Dashboard: https://traefik.{{ public_domain }}:8080
+          Service Endpoint: https://{{ public_domain }}
+          SSH Port: {{ public_ip }}:3022
+          Health Check: curl https://{{ public_domain }}:3025/health
+
+          Next Steps:
+          1. Verify DNS resolution: nslookup {{ public_domain }}
+          2. Check ACME cert: docker service logs gotTeleport_stack_traefik | grep acme
+          3. Monitor logs: docker service logs gotTeleport_stack_gotTeleport
+          4. Test connectivity: curl -k https://{{ public_domain }}
+          ======================================
+        verbosity: 0
+
+  post_tasks:
+    - name: Create rollback snapshot
+      ansible.builtin.shell:
+        cmd: |
+          docker service ls > /tmp/teleport-deployment-$(date +%Y%m%d-%H%M%S).log
+          docker stack ps gotTeleport_stack >> /tmp/teleport-deployment-$(date +%Y%m%d-%H%M%S).log
+      changed_when: false
+      tags:
+        - never
+        - backup
+
+    - name: Display error handling instructions
+      ansible.builtin.debug:
+        msg: |
+          In case of deployment issues:
+
+          1. Check Traefik logs:
+             docker service logs gotTeleport_stack_traefik --tail 100
+
+          2. Check Teleport service logs:
+             docker service logs gotTeleport_stack_gotTeleport --tail 100
+
+          3. Verify network configuration:
+             ip rule list && ip route show table public && ip route show table internal
+
+          4. Rollback if needed:
+             docker stack rm gotTeleport_stack
+             docker volume rm gotTeleport_stack_traefik-certs gotTeleport_stack_teleport-data
+
+          5. Detailed troubleshooting:
+             See docs/DEPLOYMENT_RUNBOOK.md → Troubleshooting section
+      tags:
+        - never
+        - help

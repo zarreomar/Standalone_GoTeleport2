@@ -1,0 +1,72 @@
+---
+# Network Setup and Routing Configuration
+# Configures host-level networking for dual-interface binding (ens3/ens4)
+
+- name: Verify host network interfaces exist
+  ansible.builtin.assert:
+    that:
+      - ansible_{{ host_network_public }} is defined
+      - ansible_{{ host_network_internal }} is defined
+    fail_msg: "Required network interfaces ({{ host_network_public }}/{{ host_network_internal }}) not found"
+
+- name: Create routing policy database entries
+  ansible.builtin.lineinfile:
+    path: /etc/iproute2/rt_tables
+    line: "{{ item.priority }} {{ item.name }}"
+    state: present
+    create: yes
+  loop:
+    - { priority: 100, name: public }
+    - { priority: 200, name: internal }
+
+- name: Configure public network routing (ens3)
+  ansible.builtin.command:
+    cmd: "ip route add {{ swarm_subnet }} dev {{ host_network_public }} table public"
+  register: public_route
+  changed_when: "'RTNETLINK answers: File exists' not in public_route.stderr"
+  failed_when:
+    - public_route.rc != 0
+    - "'RTNETLINK answers: File exists' not in public_route.stderr"
+
+- name: Configure internal network routing (ens4)
+  ansible.builtin.command:
+    cmd: "ip route add {{ internal_subnet }} dev {{ host_network_internal }} table internal"
+  register: internal_route
+  changed_when: "'RTNETLINK answers: File exists' not in internal_route.stderr"
+  failed_when:
+    - internal_route.rc != 0
+    - "'RTNETLINK answers: File exists' not in internal_route.stderr"
+
+- name: Add policy rules for routing tables
+  ansible.builtin.command:
+    cmd: "ip rule add from {{ item.from_addr }} table {{ item.table }}"
+  loop:
+    - { from_addr: "{{ public_ip }}", table: "public" }
+    - { from_addr: "{{ internal_ip }}", table: "internal" }
+  register: policy_rules
+  changed_when: "'already exists' not in policy_rules.stderr"
+  failed_when:
+    - policy_rules.rc != 0
+    - "'already exists' not in policy_rules.stderr"
+
+- name: Persist routing rules across reboots
+  ansible.builtin.copy:
+    content: |
+      #!/bin/bash
+      # Restore routing rules on boot
+      ip route add {{ swarm_subnet }} dev {{ host_network_public }} table public
+      ip route add {{ internal_subnet }} dev {{ host_network_internal }} table internal
+      ip rule add from {{ public_ip }} table public
+      ip rule add from {{ internal_ip }} table internal
+    dest: /etc/network/if-up.d/teleport-routes
+    mode: '0755'
+
+- name: Verify routing configuration
+  ansible.builtin.command:
+    cmd: ip rule list
+  register: routing_rules
+  changed_when: false
+
+- name: Display routing configuration
+  ansible.builtin.debug:
+    var: routing_rules.stdout_lines
