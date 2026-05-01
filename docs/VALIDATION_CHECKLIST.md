@@ -60,6 +60,7 @@
 - [ ] Docker helper script is available
   ```bash
   test -x scripts/prepare_host.sh && echo "✓ prepare_host.sh present"
+  test -x scripts/prepare_host_ubuntu.sh && echo "✓ prepare_host_ubuntu.sh present"
   ```
 
 ### Docker Daemon
@@ -376,6 +377,7 @@
 - [ ] Host prep script has been reviewed or executed on the target host
   ```bash
   test -x scripts/prepare_host.sh && echo "✓ prepare_host.sh present"
+  test -x scripts/prepare_host_ubuntu.sh && echo "✓ prepare_host_ubuntu.sh present"
   ```
 
 - [ ] Review what changes will be made

@@ -6,7 +6,7 @@ This checkpoint captures the host-preparation and documentation pass for the GoT
 
 ## Completed
 
-- Added `scripts/prepare_host.sh` to install the missing host prerequisites and configure the deployment baseline.
+- Split host prep into `scripts/prepare_host.sh` for root and `scripts/prepare_host_ubuntu.sh` for the `ubuntu` user.
 - Added `scripts/validate.sh` to provide a quick host/deployment validation pass.
 - Updated `QUICKSTART.md` with package-install and host-prep instructions.
 - Updated `docs/DEPLOYMENT_RUNBOOK.md` with explicit install steps for required packages.
@@ -26,6 +26,8 @@ sudo apt-get install -y ca-certificates curl gnupg lsb-release iproute2 ufw pyth
 
 1. Install the required packages.
 2. Run `sudo bash scripts/prepare_host.sh`.
-3. Copy and customize `ansible/group_vars/all.yml`.
-4. Run `ansible-playbook -i localhost, -c local ansible/main.yml --check --diff`.
-5. Deploy for real once the dry-run output is clean.
+3. Re-login as `ubuntu` so docker group membership takes effect.
+4. Run `bash scripts/prepare_host_ubuntu.sh`.
+5. Copy and customize `ansible/group_vars/all.yml`.
+6. Run `ansible-playbook -i localhost, -c local ansible/main.yml --check --diff`.
+7. Deploy for real once the dry-run output is clean.

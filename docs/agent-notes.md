@@ -92,7 +92,8 @@ Persistent via `/etc/network/if-up.d/teleport-routes` hook.
 - `docs/VALIDATION_CHECKLIST.md`
 
 ### Recent Host-Prep Additions
-- `scripts/prepare_host.sh` - Installs host prerequisites, Docker, routing persistence, and firewall rules
+- `scripts/prepare_host.sh` - Root-only install for host prerequisites, Docker, routing persistence, and firewall rules
+- `scripts/prepare_host_ubuntu.sh` - Ubuntu-user Swarm/bootstrap step
 - `scripts/validate.sh` - Quick local validation for packages, scripts, Docker, and Ansible
 - `docs/CHECKPOINT_2026-05-01.md` - Dated checkpoint for the host-preparation/doc update pass
 
@@ -103,10 +104,12 @@ Persistent via `/etc/network/if-up.d/teleport-routes` hook.
 ### Before Deploying
 1. Install required host packages: `sudo apt-get install -y ca-certificates curl gnupg lsb-release iproute2 ufw python3-venv`
 2. Run `sudo bash scripts/prepare_host.sh` on a fresh Ubuntu host
-3. Copy `ansible/group_vars/all.yml.example` → `ansible/group_vars/all.yml`
-4. Customize variables (public_domain, IPs, subnets)
-5. Run `bash scripts/validate.sh`
-6. Verify all ✓ items pass
+3. Re-login as `ubuntu` so docker group membership takes effect
+4. Run `bash scripts/prepare_host_ubuntu.sh`
+5. Copy `ansible/group_vars/all.yml.example` → `ansible/group_vars/all.yml`
+6. Customize variables (public_domain, IPs, subnets)
+7. Run `bash scripts/validate.sh`
+8. Verify all ✓ items pass
 
 ### Deployment Options
 1. **Ansible (recommended):** `ansible-playbook -i localhost, -c local ansible/main.yml`
@@ -217,7 +220,7 @@ Full troubleshooting in DEPLOYMENT_RUNBOOK.md → Troubleshooting section
 **Checkpoint Focus:** Host-preparation workflow documented and scripted
 
 ### What Changed
-- Added `scripts/prepare_host.sh` to install Docker, base packages, routing persistence, and firewall rules
+- Split host prep into `scripts/prepare_host.sh` (root) and `scripts/prepare_host_ubuntu.sh` (ubuntu user)
 - Added `scripts/validate.sh` to verify the host-prep and deployment prerequisites
 - Updated Quick Start, Runbook, and Validation Checklist with package-install instructions
 - Standardized the Community Edition Teleport image reference in the deployment docs

@@ -33,6 +33,7 @@ yaml_value() {
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 GROUP_VARS_FILE="${ROOT_DIR}/ansible/group_vars/all.yml"
+DEPLOY_USER="${DEPLOY_USER:-ubuntu}"
 
 PUBLIC_IFACE="${PUBLIC_IFACE:-${HOST_NETWORK_PUBLIC:-ens3}}"
 INTERNAL_IFACE="${INTERNAL_IFACE:-${HOST_NETWORK_INTERNAL:-ens4}}"
@@ -40,24 +41,18 @@ PUBLIC_IP="${PUBLIC_IP:-}"
 INTERNAL_IP="${INTERNAL_IP:-}"
 SWARM_SUBNET="${SWARM_SUBNET:-}"
 INTERNAL_SUBNET="${INTERNAL_SUBNET:-}"
-PUBLIC_DOMAIN="${PUBLIC_DOMAIN:-}"
-ACME_EMAIL="${ACME_EMAIL:-}"
 
 if [[ -f "$GROUP_VARS_FILE" ]]; then
   PUBLIC_IP="${PUBLIC_IP:-$(yaml_value public_ip "$GROUP_VARS_FILE")}"
   INTERNAL_IP="${INTERNAL_IP:-$(yaml_value internal_ip "$GROUP_VARS_FILE")}"
   SWARM_SUBNET="${SWARM_SUBNET:-$(yaml_value swarm_subnet "$GROUP_VARS_FILE")}"
   INTERNAL_SUBNET="${INTERNAL_SUBNET:-$(yaml_value internal_subnet "$GROUP_VARS_FILE")}"
-  PUBLIC_DOMAIN="${PUBLIC_DOMAIN:-$(yaml_value public_domain "$GROUP_VARS_FILE")}"
-  ACME_EMAIL="${ACME_EMAIL:-$(yaml_value acme_email "$GROUP_VARS_FILE")}"
 fi
 
 PUBLIC_IP="${PUBLIC_IP:-}"
 INTERNAL_IP="${INTERNAL_IP:-}"
 SWARM_SUBNET="${SWARM_SUBNET:-}"
 INTERNAL_SUBNET="${INTERNAL_SUBNET:-}"
-PUBLIC_DOMAIN="${PUBLIC_DOMAIN:-}"
-ACME_EMAIL="${ACME_EMAIL:-}"
 
 require_root "$@"
 
@@ -65,8 +60,6 @@ require_root "$@"
 [[ -n "$INTERNAL_IP" ]] || die "INTERNAL_IP is not set and could not be read from ansible/group_vars/all.yml"
 [[ -n "$SWARM_SUBNET" ]] || die "SWARM_SUBNET is not set and could not be read from ansible/group_vars/all.yml"
 [[ -n "$INTERNAL_SUBNET" ]] || die "INTERNAL_SUBNET is not set and could not be read from ansible/group_vars/all.yml"
-[[ -n "$PUBLIC_DOMAIN" ]] || die "PUBLIC_DOMAIN is not set and could not be read from ansible/group_vars/all.yml"
-[[ -n "$ACME_EMAIL" ]] || die "ACME_EMAIL is not set and could not be read from ansible/group_vars/all.yml"
 
 CODENAME="$(. /etc/os-release && printf '%s' "${VERSION_CODENAME:-}")"
 [[ -n "$CODENAME" ]] || die "Could not determine Ubuntu codename"
@@ -97,6 +90,13 @@ systemctl enable --now docker
 
 if ! docker info >/dev/null 2>&1; then
   die "Docker daemon is not responding"
+fi
+
+if id -u "${DEPLOY_USER}" >/dev/null 2>&1; then
+  log "Adding ${DEPLOY_USER} to the docker group"
+  usermod -aG docker "${DEPLOY_USER}"
+else
+  log "Deploy user ${DEPLOY_USER} does not exist yet; skipping docker group membership update"
 fi
 
 log "Configuring sysctl for container networking"
@@ -199,16 +199,5 @@ else
   ufw --force enable
 fi
 
-log "Initializing Docker Swarm if needed"
-if ! docker info 2>/dev/null | grep -qi 'swarm: active'; then
-  ADVERTISE_ADDR="${PUBLIC_IP}"
-  docker swarm init --advertise-addr "${ADVERTISE_ADDR}"
-fi
-
-log "Pre-creating the overlay network"
-if ! docker network ls --format '{{.Name}}' | grep -qx teleport-net; then
-  docker network create --driver overlay --attachable teleport-net
-fi
-
 log "Host preparation complete"
-log "Next: copy ansible/group_vars/all.yml.example to ansible/group_vars/all.yml if needed, then run the playbook."
+log "Next: re-login as ${DEPLOY_USER} and run scripts/prepare_host_ubuntu.sh"

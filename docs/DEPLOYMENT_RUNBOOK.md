@@ -62,6 +62,7 @@ If Docker is missing, the repository includes a helper that installs Docker and 
 
 ```bash
 sudo bash scripts/prepare_host.sh
+bash scripts/prepare_host_ubuntu.sh
 ```
 
 The helper installs:
@@ -71,6 +72,9 @@ The helper installs:
 - UFW
 - iproute2
 - CA certificates and package signing tools
+- The `ubuntu` user is added to the `docker` group by the root step
+
+After the root step, re-login as `ubuntu` before running the user step so the new group membership takes effect.
 
 ### Pre-Deployment Checklist
 
@@ -166,6 +170,7 @@ sudo apt-get install -y ca-certificates curl gnupg lsb-release iproute2 ufw pyth
 
 # Or use the repository helper to install Docker and baseline config
 sudo bash scripts/prepare_host.sh
+bash scripts/prepare_host_ubuntu.sh
 
 # Create teleport configuration directory
 sudo mkdir -p /etc/teleport

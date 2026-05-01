@@ -26,6 +26,7 @@ check_cmd "python3-venv" "dpkg -l | grep -q python3-venv"
 
 echo "[2/8] Scripts"
 check_cmd "prepare_host.sh present" "test -x ${ROOT_DIR}/scripts/prepare_host.sh"
+check_cmd "prepare_host_ubuntu.sh present" "test -x ${ROOT_DIR}/scripts/prepare_host_ubuntu.sh"
 check_cmd "deploy.sh present" "test -x ${ROOT_DIR}/scripts/deploy.sh"
 
 echo "[3/8] Ansible"
