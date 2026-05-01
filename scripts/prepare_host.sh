@@ -19,15 +19,16 @@ require_root() {
 yaml_value() {
   local key="$1"
   local file="$2"
-  awk -F': *' -v key="$key" '
-    $1 == key {
-      sub(/^"/, "", $2);
-      sub(/"$/, "", $2);
-      sub(/^'\''/, "", $2);
-      sub(/'\''$/, "", $2);
-      sub(/[[:space:]]*#.*$/, "", $2);
-      gsub(/[[:space:]]+$/, "", $2);
-      print $2;
+  awk -v key="$key" '
+    $0 ~ "^[[:space:]]*" key ":" {
+      sub("^[[:space:]]*" key ":[[:space:]]*", "", $0);
+      sub(/[[:space:]]*#.*/, "", $0);
+      gsub(/^[[:space:]]+|[[:space:]]+$/, "", $0);
+      gsub(/^"/, "", $0);
+      gsub(/"$/, "", $0);
+      gsub(/^'\''/, "", $0);
+      gsub(/'\''$/, "", $0);
+      print;
       exit
     }
   ' "$file"
