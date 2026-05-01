@@ -32,19 +32,19 @@
 - [ ] NACLs don't block Docker Swarm overlay traffic (VXLAN UDP 4789)
 
 ### Storage & Disk Space
-- [ ] Minimum 50GB available on /var/lib
+- [ ] Minimum 50GB available on /opt/datavolume
   ```bash
-  df -h /var/lib | tail -1
+  df -h /opt/datavolume | tail -1
   ```
 
 - [ ] Directory permissions set correctly
   ```bash
-  ls -la /var/lib/teleport 2>/dev/null || echo "Directory will be created"
+  ls -la /opt/datavolume/teleport 2>/dev/null || echo "Directory will be created"
   ```
 
 - [ ] No mount point issues
   ```bash
-  mount | grep "/var/lib"
+  mount | grep "/opt/datavolume"
   ```
 
 ---
@@ -206,14 +206,24 @@
   python3 -c "import yaml; yaml.safe_load(open('config/teleport.yaml'))"
   ```
 
-- [ ] All required services are enabled
+- [ ] Config declares the Teleport v3 schema
   ```bash
-  grep -E "enabled.*yes" config/teleport.yaml
+  grep "^version: v3" config/teleport.yaml
   ```
 
-- [ ] Data directory path is set
+- [ ] Teleport uses PostgreSQL for cluster state and audit events
   ```bash
-  grep "directory:" config/teleport.yaml
+  grep -E "type: postgresql|conn_string:|audit_events_uri:" config/teleport.yaml
+  ```
+
+- [ ] Session recordings use MinIO-backed S3 storage
+  ```bash
+  grep "audit_sessions_uri:" config/teleport.yaml | grep "s3://"
+  ```
+
+- [ ] Auth, SSH, and Proxy services are enabled
+  ```bash
+  grep -E "auth_service:|ssh_service:|proxy_service:" config/teleport.yaml
   ```
 
 ### Ansible Configuration

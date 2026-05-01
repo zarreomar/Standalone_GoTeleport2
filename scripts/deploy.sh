@@ -1,37 +1,9 @@
-#!/bin/bash
-# ===============================================================
-# GoTeleport Swarm Deployment Orchestration Script
-# This script automates the necessary sequence to bring the service online.
-# Executed against the host machine with direct Docker access.
-# ===============================================================
+#!/usr/bin/env bash
+set -euo pipefail
 
-set -euo pipefail # Exit immediately if a command exits with a non-zero status, unset variable, or pipe fails.
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-echo "--- Starting GoTeleport Service Deployment Sequence ---"
+echo "--- Starting GoTeleport Deployment via Ansible ---"
+echo "This wrapper delegates to ansible/main.yml so PostgreSQL, MinIO, and Teleport stay in sync."
 
-# 1. BUILD STAGE (If artifacts are not already present)
-# Teleport now uses the official Community Edition image from Amazon ECR Public.
-echo "STEP 1/3: Using public.ecr.aws/gravitational/teleport-distroless:18.7.2"
-
-# 2. INFRASTRUCTURE STACK DEPLOYMENT (SA3 Blueprint)
-echo "STEP 2/3: Deploying the stack to Swarm..."
-# This command deploys the service defined in docker-compose.yml using the local image.
-docker stack deploy -c service/docker-compose.yml gotTeleport_stack
-
-echo "Service deployment initiated successfully. Monitor status below:"
-echo "-------------------------------------------------"
-
-# 3. POST-DEPLOYMENT VERIFICATION (SA4 Constraint Check)
-echo "STEP 3/3: Verifying Service Health and Host Networking..."
-
-# Check if the service is reachable via the internal network
-echo "Verifying service availability on internal network..."
-docker service ps gotTeleport_stack_gotTeleport 
-
-# Check the ingress status mapped to the host interfaces (ens3/ens4)
-echo "Checking host interfaces configuration..."
-# This command would be used to verify the hosts are correctly routing traffic via ens3/ens4 based on the blueprint.
-ip a | grep ens3
-ip a | grep ens4
-
-echo "Deployment Sequence Complete. Review logs for service status."
+exec ansible-playbook -i localhost, -c local "${ROOT_DIR}/ansible/main.yml" "$@"

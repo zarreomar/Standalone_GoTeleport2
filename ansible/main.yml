@@ -19,6 +19,23 @@
           - internal_ip is defined
           - swarm_subnet is defined
           - internal_subnet is defined
+          - postgres_host is defined
+          - postgres_port is defined
+          - postgres_user is defined
+          - postgres_password is defined
+          - postgres_backend_db is defined
+          - postgres_audit_db is defined
+          - postgres_sslmode is defined
+          - postgres_image_name is defined
+          - minio_image_name is defined
+          - minio_mc_image_name is defined
+          - minio_root_user is defined
+          - minio_root_password is defined
+          - minio_bucket is defined
+          - minio_region is defined
+          - minio_endpoint is defined
+          - minio_console_port is defined
+          - teleport_audit_sessions_uri is defined
         fail_msg: "Required variables not found. See ansible/group_vars/all.yml.example"
 
     - name: Display deployment configuration
@@ -34,6 +51,8 @@
           Environment: {{ deploy_environment | default('production') }}
           Public IP (ens3): {{ public_ip }}
           Internal IP (ens4): {{ internal_ip }}
+          PostgreSQL host: {{ postgres_host }}:{{ postgres_port }}
+          MinIO endpoint: {{ minio_endpoint }}
           ======================================
 
   roles:
@@ -55,6 +74,12 @@
       changed_when: false
       failed_when: swarm_status.rc != 0
 
+    - name: Build PostgreSQL image with wal2json
+      ansible.builtin.command:
+        cmd: docker build -t {{ postgres_image_name }} -f {{ playbook_dir }}/../postgres/Dockerfile {{ playbook_dir }}/../postgres
+      register: postgres_build
+      changed_when: "'Successfully built' in postgres_build.stdout or postgres_build.rc == 0"
+
     - name: Create Docker overlay network for services
       ansible.builtin.shell:
         cmd: docker network inspect teleport-net >/dev/null 2>&1 || docker network create --driver overlay --attachable teleport-net
@@ -74,6 +99,22 @@
         COMPOSE_PARALLEL_PUSH: 1
       register: stack_deploy
       changed_when: "'Ignoring unsupported' not in stack_deploy.stderr"
+
+    - name: Ensure MinIO session bucket exists and has versioning enabled
+      ansible.builtin.shell:
+        cmd: >
+          docker run --rm --network teleport-net
+          -e MC_HOST_local=http://{{ minio_root_user }}:{{ minio_root_password }}@minio:9000
+          {{ minio_mc_image_name }}
+          mb --ignore-existing local/{{ minio_bucket }} &&
+          docker run --rm --network teleport-net
+          -e MC_HOST_local=http://{{ minio_root_user }}:{{ minio_root_password }}@minio:9000
+          {{ minio_mc_image_name }}
+          version enable local/{{ minio_bucket }}
+      register: minio_bucket_init
+      retries: 12
+      delay: 5
+      until: minio_bucket_init.rc == 0
 
     - name: Wait for stack services to be deployed
       ansible.builtin.shell:
@@ -110,7 +151,7 @@
 
     - name: Verify service connectivity
       ansible.builtin.shell:
-        cmd: curl -s -o /dev/null -w "%{http_code}" http://localhost:3025/health || echo "0"
+        cmd: curl -sk -o /dev/null -w "%{http_code}" https://{{ public_domain }}/webapi/ping || echo "0"
       register: health_check
       retries: 5
       delay: 10
@@ -126,7 +167,9 @@
           Traefik Dashboard: https://traefik.{{ public_domain }}:8080
           Service Endpoint: https://{{ public_domain }}
           SSH Port: {{ public_ip }}:3022
-          Health Check: curl https://{{ public_domain }}:3025/health
+          Health Check: curl -k https://{{ public_domain }}/webapi/ping
+          Backend: PostgreSQL {{ postgres_host }}:{{ postgres_port }}
+          Session storage: s3://{{ minio_bucket }}/records via {{ minio_endpoint }}
 
           Next Steps:
           1. Verify DNS resolution: nslookup {{ public_domain }}

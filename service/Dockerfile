@@ -5,13 +5,15 @@
 # Use the official Teleport Community Edition image from Amazon ECR Public.
 FROM public.ecr.aws/gravitational/teleport-distroless:18.7.2 AS base
 
-# Copy the service configuration into the image.
+# Copy the reference service configuration into the image as a fallback.
+# The Swarm deployment mounts the rendered runtime config over this path.
 COPY ./config/teleport.yaml /etc/teleport/teleport.yaml
 
 # Expose all necessary ports for the service to be reachable (Host mapping happens in compose file)
 EXPOSE 3022
 EXPOSE 3023
 EXPOSE 3025
+EXPOSE 3080
 
 # --- Entrypoint ---
 # Runs Teleport with the bundled configuration file.

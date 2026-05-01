@@ -44,7 +44,15 @@ public_domain: "goteleport.yourdomain.com"
 acme_email: "admin@yourdomain.com"
 public_ip: "203.0.113.10"           # Your ens3 IP
 internal_ip: "10.100.50.10"         # Your ens4 IP
+postgres_host: "postgres"
+postgres_user: "teleport"
+postgres_password: "replace-with-a-secret"
+minio_root_user: "minioadmin"
+minio_root_password: "replace-with-a-secret"
+minio_bucket: "teleport-sessions"
 ```
+
+PostgreSQL 13+ is required for the Teleport cluster state and audit events backend. Session recordings now go to a MinIO-backed S3 bucket, so the cluster has shared storage for replays.
 
 ### 4. Run Validation
 
@@ -96,10 +104,12 @@ Run the cleanup step if this host ever had the older `/etc/teleport`-based setup
 Root script performs:
 - Installs Docker Engine and the compose/buildx plugins
 - Installs base packages used by the deployment and validation steps
-- Creates `/var/lib/teleport`
+- Creates `/opt/datavolume/teleport`
 - Sets up policy routing persistence for `ens3` and `ens4`
 - Opens the required firewall ports with UFW and enables it safely if it was inactive
 - Adds `ubuntu` to the `docker` group when that user exists
+
+The runtime config and Teleport data live under `/opt/datavolume/teleport` on the host, which is mounted into the container at `/var/lib/teleport`.
 
 After the root step, log out and back in as `ubuntu` so the new group membership takes effect.
 
@@ -310,13 +320,14 @@ VPC -----→ [ens4: :3022/3023] ──────────────→ Se
    - Access web UI: `https://goteleport.yourdomain.com`
 
 3. **Set Up Audit Logging**
-   - Check `/var/lib/teleport/log/audit/`
+   - Cluster events are stored in PostgreSQL
+   - Session recordings are stored in the MinIO S3 bucket
 
 4. **Enable Session Recording**
-   - Already configured in `teleport.yaml`
+   - Already configured in the rendered Teleport config
 
 5. **Add to Monitoring**
-   - Health endpoint: `https://goteleport.yourdomain.com:3025/health`
+   - Health endpoint: `https://goteleport.yourdomain.com/webapi/ping`
    - Service logs: `docker service logs gotTeleport_stack_gotTeleport`
 
 ---
@@ -334,8 +345,10 @@ VPC -----→ [ens4: :3022/3023] ──────────────→ Se
 
 1. **ansible/group_vars/all.yml** - Your deployment variables
 2. **service/docker-compose.yml** - Service definitions (includes Traefik)
-3. **config/teleport.yaml** - GoTeleport configuration
-4. **ansible/main.yml** - Deployment playbook steps
+3. **config/teleport.yaml** - Reference GoTeleport configuration
+4. **postgres/** - Dockerized PostgreSQL backend with `wal2json`
+5. **scripts/prepare_host.sh** - Host prep and storage directories
+6. **ansible/main.yml** - Deployment playbook steps
 
 ---
 

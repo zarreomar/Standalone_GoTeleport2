@@ -1,41 +1,41 @@
-# GoTeleport Configuration File
-# This file configures the standalone GoTeleport instance.
-# This blueprint is based on the cluster membership required for a Swarm deployment.
+# Reference Teleport configuration for the GoTeleport deployment.
+#
+# The runtime config is rendered by Ansible into /opt/datavolume/teleport/teleport.yaml
+# and mounted into the container. Keep this file in sync with the template.
 
-# --- Core Service Enablement ---
+version: v3
+
 teleport:
-  nodename: gotTeleport-${HOSTNAME} # Variable populated during deployment to ensure unique identity
-  server_role: "local" # Since it's standalone/testing, it acts as its own server component. Adjust for production cluster membership.
-  # cluster_id: "unique_cluster_id" # Should be managed/fetched dynamically during scale-up.
+  data_dir: /var/lib/teleport
+  storage:
+    type: postgresql
+    conn_string: "postgresql://teleport:change-me-with-a-secret@postgres:5432/teleport_backend?sslmode=disable&pool_max_conns=20"
+    audit_events_uri:
+      - "postgresql://teleport:change-me-with-a-secret@postgres:5432/teleport_audit?sslmode=disable"
+    audit_sessions_uri: "s3://teleport-sessions/records?region=us-east-1&endpoint=minio:9000&insecure=true"
+  log:
+    output: stderr
+    severity: INFO
 
-# --- Service Components ---
 auth_service:
-  enabled: "yes"
-  # For testing, use token validation. In production, this integrates with LDAP/AD/etc.
-  # login_timeout: "5m"
-  # required_authn_methods: ["password", "webauthn"]
+  enabled: true
+  cluster_name: teleport.accesstel.net
+  authentication:
+    type: local
+  session_recording_config:
+    mode: node
 
 ssh_service:
-  enabled: "yes"
-  # Bind host machine to the specific network/interface bindings managed by the Swarm ingress.
-  bind_address: "0.0.0.0" 
-  port: 22 # Or use service port mapping
-  # Auto-provisioning keys should be enabled for CI/CD pipeline automation.
-  auto_provision: "yes"
+  enabled: true
+  listen_addr: 0.0.0.0:3022
+  public_addr: teleport.accesstel.net:3022
+  labels:
+    env: production
+    cluster: teleport.accesstel.net
 
 proxy_service:
-  enabled: "yes"
-  # Use the public endpoint mapped by the Swarm ingress for clients to reach the service.
-  public_addr: "gotTeleport.yourdomain.com:443"
-  
-# --- Data Persistence and Auditing ---
-storage:
-  type: "filesystem"
-  directory: "/var/lib/teleport/backend" # This path must persist across container restarts if using volumes.
-
-# --- Logging ---
-logging:
-  severity: "INFO" # Adjust to WARN/ERROR for production hardening during audits.
-
-# --- Security Note ---
-# In a real production cluster, sensitive data like admin passwords/signing keys should NEVER be in plain text here. They must be injected via secrets management (e.g., Swarm Secrets or external vault).
+  enabled: true
+  web_listen_addr: 0.0.0.0:3080
+  public_addr: teleport.accesstel.net:443
+  ssh_public_addr: teleport.accesstel.net:3023
+  tunnel_public_addr: teleport.accesstel.net:3024

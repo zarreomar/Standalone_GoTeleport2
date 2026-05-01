@@ -111,9 +111,12 @@ EOF
 sysctl --system >/dev/null
 
 log "Creating Teleport directories"
-install -d -m 0755 /var/lib/teleport
-install -d -m 0755 /var/lib/teleport/backend
-install -d -m 0755 /var/lib/teleport/log
+install -d -m 0755 /opt/datavolume/teleport
+install -d -m 0755 /opt/datavolume/teleport/backend
+install -d -m 0755 /opt/datavolume/teleport/log
+install -d -m 0755 /opt/datavolume/postgres/data
+install -d -m 0755 /opt/datavolume/minio/data
+install -d -m 0755 /opt/datavolume/traefik/config/dynamic
 
 log "Registering routing tables"
 if ! grep -qE '^[[:space:]]*100[[:space:]]+public$' /etc/iproute2/rt_tables; then

@@ -4,6 +4,76 @@
 version: '3.8'
 
 services:
+  postgres:
+    image: "{{ postgres_image_name }}"
+    container_name: goteleport_postgres
+    environment:
+      POSTGRES_USER: "{{ postgres_user }}"
+      POSTGRES_PASSWORD: "{{ postgres_password }}"
+      POSTGRES_DB: "{{ postgres_backend_db }}"
+      TELEPORT_AUDIT_DB: "{{ postgres_audit_db }}"
+    command:
+      - "postgres"
+      - "-c"
+      - "wal_level=logical"
+      - "-c"
+      - "max_replication_slots=10"
+      - "-c"
+      - "max_wal_senders=10"
+    volumes:
+      - /opt/datavolume/postgres/data:/var/lib/postgresql/data
+    networks:
+      - teleport-net
+    deploy:
+      mode: replicated
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 5
+
+  minio:
+    image: "{{ minio_image_name }}"
+    container_name: goteleport_minio
+    command: server /data --console-address ":{{ minio_console_port }}"
+    environment:
+      MINIO_ROOT_USER: "{{ minio_root_user }}"
+      MINIO_ROOT_PASSWORD: "{{ minio_root_password }}"
+    volumes:
+      - /opt/datavolume/minio/data:/data
+    networks:
+      - teleport-net
+    deploy:
+      mode: replicated
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 5
+
+  minio-init:
+    image: "{{ minio_mc_image_name }}"
+    container_name: goteleport_minio_init
+    entrypoint: ["/bin/sh", "-lc"]
+    command: >
+      until mc alias set local http://minio:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"; do
+        echo "Waiting for MinIO...";
+        sleep 5;
+      done;
+      mc mb --ignore-existing local/{{ minio_bucket }};
+      mc version enable local/{{ minio_bucket }};
+      echo "MinIO bucket ready."
+    environment:
+      MC_HOST_local: "http://{{ minio_root_user }}:{{ minio_root_password }}@minio:9000"
+      MINIO_ROOT_USER: "{{ minio_root_user }}"
+      MINIO_ROOT_PASSWORD: "{{ minio_root_password }}"
+    networks:
+      - teleport-net
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: none
+
   # Traefik Reverse Proxy - Handles SSL/TLS termination and routing
   traefik:
     image: traefik:v3.0
@@ -16,6 +86,8 @@ services:
       - "--providers.docker=true"
       - "--providers.docker.exposedbydefault=false"
       - "--providers.docker.swarmMode=true"
+      - "--providers.file.directory=/etc/traefik/dynamic"
+      - "--providers.file.watch=true"
       - "--certificatesresolvers.letsencrypt.acme.email={{ acme_email }}"
       - "--certificatesresolvers.letsencrypt.acme.storage=/etc/traefik/acme.json"
       - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
@@ -30,8 +102,15 @@ services:
         published: 8080
         protocol: tcp
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - traefik-certs:/etc/traefik/
+      #- /var/run/docker.sock:/var/run/docker.sock
+      #- traefik-certs:/etc/traefik/
+      #- /etc/localtime:/etc/localtime:ro
+      #- /var/run/docker.sock:/var/run/docker.sock:ro
+      #- /opt/datavolume/traefik/config/traefik.yml:/traefik.yml:ro
+      #- /opt/datavolume/traefik/config/acme.json:/acme.json
+      #- /opt/datavolume/traefik/config/dynamic-config.yml:/dynamic-config.yml:ro
+      - /opt/datavolume/traefik/config:/etc/traefik/
+      - /opt/datavolume/traefik/logs:/var/log/traefik
     networks:
       - teleport-net
     deploy:
@@ -57,18 +136,23 @@ services:
     ports:
       # Traefik handles 80/443, internal ports exposed for direct service access if needed
       - target: 3022
-        published: "3022"
+        published: 3022
         protocol: tcp
       - target: 3025
-        published: "3025"
+        published: 3025
         protocol: tcp
     volumes:
       # Persistent storage for service state/logs
-      - teleport-data:/var/lib/teleport
+      #- teleport-data:/var/lib/teleport
+      - /opt/datavolume/teleport:/var/lib/teleport
+      - /opt/datavolume/teleport/teleport.yaml:/etc/teleport/teleport.yaml:ro
     networks:
       - teleport-net # Internal service discovery network
     environment:
       - TELEPORT_CONFIG=/etc/teleport/teleport.yaml
+      - AWS_ACCESS_KEY_ID={{ minio_root_user }}
+      - AWS_SECRET_ACCESS_KEY={{ minio_root_password }}
+      - AWS_REGION={{ minio_region }}
     deploy:
       mode: replicated
       replicas: 3
@@ -85,8 +169,11 @@ services:
         traefik.http.routers.gotTeleport.entrypoints: websecure
         traefik.http.routers.gotTeleport.service: gotTeleport-svc
         traefik.http.routers.gotTeleport.tls.certresolver: letsencrypt
-        traefik.http.services.gotTeleport-svc.loadbalancer.server.port: "3023"
-        traefik.http.services.gotTeleport-svc.loadbalancer.healthcheck.path: "/health"
+        traefik.http.services.gotTeleport-svc.loadbalancer.server.port: "3080"
+        traefik.http.services.gotTeleport-svc.loadbalancer.server.scheme: https
+        traefik.http.services.gotTeleport-svc.loadbalancer.serverstransport: gotteleport-transport@file
+        traefik.http.services.gotTeleport-svc.loadbalancer.healthcheck.scheme: https
+        traefik.http.services.gotTeleport-svc.loadbalancer.healthcheck.path: "/webapi/ping"
         traefik.http.services.gotTeleport-svc.loadbalancer.healthcheck.interval: "30s"
 
 # Define networks required for the service stack
@@ -98,8 +185,8 @@ networks:
       # Bind overlay network to specific host interfaces if needed
       com.docker.network.driver.mtu: 1450
 
-volumes:
-  traefik-certs:
-    driver: local
-  teleport-data:
-    driver: local
+#volumes:
+#  traefik-certs:
+#    driver: local
+#  teleport-data:
+#    driver: local

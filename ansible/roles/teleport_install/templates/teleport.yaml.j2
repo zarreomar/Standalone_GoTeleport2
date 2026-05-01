@@ -1,48 +1,40 @@
-# GoTeleport Configuration Template
-# Variables from group_vars or extra-vars will populate Jinja placeholders
+# Teleport configuration rendered for containerized deployment.
+#
+# The runtime config is mounted into the container at /etc/teleport/teleport.yaml.
+
+version: v3
 
 teleport:
-  nodename: gotTeleport-{{ inventory_hostname }}
-  server_role: local
-  data_dir: /var/lib/teleport
+  data_dir: {{ storage_path | default('/var/lib/teleport') }}
+  storage:
+    type: postgresql
+    conn_string: "postgresql://{{ postgres_user }}:{{ postgres_password }}@{{ postgres_host }}:{{ postgres_port }}/{{ postgres_backend_db }}?sslmode={{ postgres_sslmode }}&pool_max_conns=20"
+    audit_events_uri:
+      - "postgresql://{{ postgres_user }}:{{ postgres_password }}@{{ postgres_host }}:{{ postgres_port }}/{{ postgres_audit_db }}?sslmode={{ postgres_sslmode }}"
+    audit_sessions_uri: "{{ teleport_audit_sessions_uri | default('file:///var/lib/teleport/log') }}"
+  log:
+    output: stderr
+    severity: "{{ log_severity | default('INFO') }}"
 
 auth_service:
-  enabled: "yes"
+  enabled: true
   cluster_name: "{{ cluster_name | default('gotTeleport-cluster') }}"
   authentication:
     type: local
-  session_recording: "{{ session_recording | default('all') }}"
+  session_recording_config:
+    mode: "{{ session_recording | default('node') }}"
 
 ssh_service:
-  enabled: "yes"
-  bind_address: "0.0.0.0:22"
-  auto_provision: "yes"
+  enabled: true
+  listen_addr: 0.0.0.0:3022
+  public_addr: "{{ public_domain }}:3022"
   labels:
     env: "{{ deploy_environment | default('production') }}"
     cluster: "{{ cluster_name | default('gotTeleport-cluster') }}"
 
 proxy_service:
-  enabled: "yes"
-  bind_address: "0.0.0.0:3023"
+  enabled: true
+  web_listen_addr: 0.0.0.0:3080
   public_addr: "{{ public_domain }}:443"
-  acme:
-    enabled: false
-    # SSL cert management delegated to Traefik reverse proxy
-
-kubernetes_service:
-  enabled: "no"
-
-database_service:
-  enabled: "no"
-
-storage:
-  type: dir
-  path: /var/lib/teleport/backend
-
-logging:
-  version: v2
-  severity: "{{ log_severity | default('INFO') }}"
-
-cache:
-  enabled: "yes"
-  ttl: 5m
+  ssh_public_addr: "{{ public_domain }}:3023"
+  tunnel_public_addr: "{{ public_domain }}:3024"

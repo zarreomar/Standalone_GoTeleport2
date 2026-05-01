@@ -36,7 +36,28 @@ health_check_path: "/health"
 
 # Storage Configuration
 storage_path: "/var/lib/teleport"
-storage_type: "dir"
+storage_type: "postgresql"
+
+# PostgreSQL backend for Teleport
+postgres_image_name: "local/goteleport-postgres:15"
+postgres_host: "postgres"
+postgres_port: 5432
+postgres_user: "teleport"
+postgres_password: "change-me-with-a-secret"
+postgres_backend_db: "teleport_backend"
+postgres_audit_db: "teleport_audit"
+postgres_sslmode: "disable"
+
+# MinIO-backed session storage for Teleport recordings
+minio_image_name: "minio/minio:latest"
+minio_mc_image_name: "minio/mc:latest"
+minio_root_user: "minioadmin"
+minio_root_password: "change-me-with-a-secret"
+minio_bucket: "teleport-sessions"
+minio_region: "us-east-1"
+minio_endpoint: "minio:9000"
+minio_console_port: 9001
+teleport_audit_sessions_uri: "s3://teleport-sessions/records?region=us-east-1&endpoint=minio:9000&insecure=true"
 
 # Optional: Docker Registry Credentials (if using private registry)
 # registry_username: "your_username"

@@ -24,13 +24,14 @@ This runbook guides the deployment of a **standalone GoTeleport instance** onto 
 - **Traefik v3.0** for SSL/TLS termination and HTTP routing
 - **Dual-interface networking** (ens3 public, ens4 VPC internal)
 - **3-replica deployment** for high availability
-- **Persistent storage** for state and audit logs
+- **PostgreSQL backend** for cluster state and audit events, plus MinIO-backed shared session recordings
 
 ### Key Components
 
 | Component | Role | Port(s) |
 |-----------|------|---------|
 | **Traefik** | SSL proxy, HTTP/HTTPS routing | 80, 443, 8080 |
+| **PostgreSQL** | Cluster state and audit events backend | 5432 |
 | **GoTeleport Auth** | Authentication service | 3022 |
 | **GoTeleport Proxy** | Client proxy service | 3023 (via Traefik on 443) |
 | **GoTeleport Health** | Health check endpoint | 3025 |
@@ -46,8 +47,9 @@ This runbook guides the deployment of a **standalone GoTeleport instance** onto 
 - **Network Interfaces:** 
   - `ens3` - Public interface (Internet-facing)
   - `ens4` - VPC/Internal interface (Private network)
-- **Storage:** Minimum 50GB available for `/var/lib/teleport`
+- **Storage:** Minimum 50GB available for `/opt/datavolume`
 - **DNS:** Public domain with A record pointing to `ens3` public IP
+- **PostgreSQL:** PostgreSQL 13+ reachable from the host, with `wal2json` available for the cluster-state backend
 
 ### Required Packages
 
@@ -90,7 +92,7 @@ ip link show ens3
 ip link show ens4
 
 # Verify disk space
-df -h /var/lib/teleport
+df -h /opt/datavolume
 
 # Verify DNS resolution
 nslookup goteleport.yourdomain.com
@@ -121,7 +123,24 @@ CLUSTER_NAME="goteleport-prod"
 ENVIRONMENT="production"
 LOG_SEVERITY="INFO"
 SESSION_RECORDING="all"
+
+# PostgreSQL Backend
+POSTGRES_HOST="postgres"
+POSTGRES_PORT="5432"
+POSTGRES_USER="teleport"
+POSTGRES_PASSWORD="replace-with-a-secret"
+POSTGRES_BACKEND_DB="teleport_backend"
+POSTGRES_AUDIT_DB="teleport_audit"
+POSTGRES_SSLMODE="disable"
+
+# MinIO Session Storage
+MINIO_ROOT_USER="minioadmin"
+MINIO_ROOT_PASSWORD="replace-with-a-secret"
+MINIO_BUCKET="teleport-sessions"
+MINIO_REGION="us-east-1"
 ```
+
+The deployment renders the runtime Teleport config into `/opt/datavolume/teleport/teleport.yaml` and mounts it into the container. Cluster state and audit events use the dockerized PostgreSQL backend, while session recordings are stored in the dockerized MinIO bucket for shared replay storage.
 
 ---
 
@@ -175,9 +194,7 @@ sudo apt-get install -y ca-certificates curl gnupg lsb-release iproute2 ufw pyth
 sudo bash scripts/prepare_host.sh
 bash scripts/prepare_host_ubuntu.sh
 
-# Set correct permissions
-sudo chown -R 1000:1000 /var/lib/teleport
-sudo chmod -R 0755 /var/lib/teleport
+# The runtime config and Teleport state live under /opt/datavolume/teleport on the host
 ```
 
 ### Step 2: Build the Docker Image
@@ -283,7 +300,7 @@ docker service ps gotTeleport_stack_gotTeleport
 docker service logs gotTeleport_stack_traefik | tail -50
 
 # Verify service health endpoint
-curl -k https://${PUBLIC_DOMAIN}:3025/health
+curl -k https://${PUBLIC_DOMAIN}/webapi/ping
 
 # Check container logs
 docker service logs gotTeleport_stack_gotTeleport
@@ -367,7 +384,7 @@ docker service logs gotTeleport_stack_gotTeleport --tail 100
 
 # Check container directly
 docker exec $(docker ps -f "label=com.docker.swarm.service.name=gotTeleport_stack_gotTeleport" -q) \
-  curl http://localhost:3025/health
+  curl -sk https://localhost:3080/webapi/ping
 ```
 
 **Resolution:**
@@ -377,7 +394,7 @@ docker exec $(docker ps -f "label=com.docker.swarm.service.name=gotTeleport_stac
   cat /etc/teleport/teleport.yaml
 
 # Check storage permissions
-sudo ls -la /var/lib/teleport
+sudo ls -la /opt/datavolume/teleport
 
 # Increase health check timeout
 docker service update gotTeleport_stack_gotTeleport
@@ -457,10 +474,10 @@ docker service logs gotTeleport_stack_gotTeleport --tail 50 | grep ERROR
 #### Weekly
 ```bash
 # Review disk usage
-df -h /var/lib/teleport
+df -h /opt/datavolume
 
 # Backup audit logs
-sudo tar -czf /backup/teleport-logs-$(date +%Y%m%d).tar.gz /var/lib/teleport/log/
+sudo tar -czf /backup/teleport-logs-$(date +%Y%m%d).tar.gz /opt/datavolume/teleport/log/
 ```
 
 #### Monthly

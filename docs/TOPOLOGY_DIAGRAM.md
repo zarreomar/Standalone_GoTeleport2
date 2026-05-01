@@ -49,7 +49,7 @@
         │└────────────┘ └────────────┘ └──────────────┘└────────┘│
         │     ▲              ▲              ▲              ▲     │
         │     │ Routes HTTPS │              │              │     │
-        │     │ to :3023     │              │              │     │
+        │     │ to :3080     │              │              │     │
         │     └──────────────┴──────────────┴──────────────┘     │
         │                                                         │
         └─────────────────────────────────────────────────────────┘
@@ -58,11 +58,17 @@
         │                                          │
         ▼                                          ▼
     ┌──────────────────┐              ┌──────────────────────┐
-    │  Storage: Local  │              │  Storage: Local      │
-    │  Volume: certs   │              │  Volume: data        │
-    │  /etc/traefik/   │              │  /var/lib/teleport/  │
-    │  acme.json       │              │  backend/, log/      │
+    │  Storage: Local  │              │  Storage: PostgreSQL │
+    │  Volume: certs   │              │  Backend + audit     │
+    │  /etc/traefik/   │              │  Cluster state       │
+    │  acme.json       │              │  and audit events    │
     └──────────────────┘              └──────────────────────┘
+                             │
+                             ▼
+                   ┌──────────────────────┐
+                   │ MinIO S3 Bucket      │
+                   │ Session recordings   │
+                   └──────────────────────┘
 ```
 
 ---
@@ -202,10 +208,10 @@
 │  └─ 3025/tcp (Health)                                │
 │                                                        │
 │  Volumes:                                              │
-│  └─ teleport-data:/var/lib/teleport                  │
+│  └─ /opt/datavolume/teleport:/var/lib/teleport       │
 │                                                        │
 │  Health Check:                                         │
-│  └─ curl http://localhost:3025/health                │
+│  └─ curl https://localhost:3080/webapi/ping          │
 │     interval: 30s, timeout: 10s                       │
 │                                                        │
 └────────────────────────────────────────────────────────┘
@@ -320,21 +326,23 @@ SSH Client (connected)
         │     Managed by Traefik service
         │     Persistent across restarts
         │
-        └─ teleport-data
+        ├─ postgres-data
+        │  └─ /var/lib/postgresql/data
+        │     (Teleport cluster state + audit events backend)
+        │
+        ├─ minio-data
+        │  └─ /data
+        │     (shared S3-compatible session recordings)
+        │
+        └─ /opt/datavolume/teleport
            └─ /var/lib/teleport/
-              ├─ backend/          (state database)
-              │  └─ etcd/          (cluster state)
-              │
-              ├─ log/              (audit logs)
-              │  └─ audit/         (session recordings)
-              │
-              └─ keys/             (signing keys)
-                 └─ *.key
+              └─ local runtime cache / spool
 ```
 
-**Volume Driver:** Local (host storage)  
-**Backing Storage:** `/var/lib/docker/volumes/`  
-**Replication Strategy:** None (sticky to node or shared storage recommended for HA)
+**Volume Driver:** Bind mounts on the host under `/opt/datavolume/`
+**Backing Storage:** `/opt/datavolume/` for Traefik config/certs, PostgreSQL data, Teleport state, and MinIO objects
+**Cluster State:** PostgreSQL 13+ with `wal2json` logical decoding
+**Replication Strategy:** PostgreSQL provides shared state; MinIO provides shared session replay storage
 
 ---
 

@@ -8,8 +8,27 @@
   register: docker_info
   changed_when: false
 
-- name: Ensure Teleport data directory exists
+- name: Ensure Teleport host data directories exist
   ansible.builtin.file:
-    path: /var/lib/teleport
+    path: "{{ item }}"
     state: directory
     mode: '0755'
+  loop:
+    - /opt/datavolume/teleport
+    - /opt/datavolume/teleport/backend
+    - /opt/datavolume/teleport/log
+    - /opt/datavolume/postgres/data
+    - /opt/datavolume/minio/data
+    - /opt/datavolume/traefik/config/dynamic
+
+- name: Render Teleport runtime config
+  ansible.builtin.template:
+    src: "{{ role_path }}/templates/teleport.yaml.j2"
+    dest: /opt/datavolume/teleport/teleport.yaml
+    mode: '0644'
+
+- name: Render Traefik transport config for Teleport
+  ansible.builtin.template:
+    src: "{{ role_path }}/templates/traefik-teleport-transport.yml.j2"
+    dest: /opt/datavolume/traefik/config/dynamic/teleport.yml
+    mode: '0644'

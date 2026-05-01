@@ -38,12 +38,16 @@ check_cmd "docker CLI available" "command -v docker"
 check_cmd "docker daemon responsive" "docker info"
 
 echo "[5/8] Host paths"
-check_cmd "/var/lib/teleport exists" "test -d /var/lib/teleport"
+check_cmd "/opt/datavolume/teleport exists" "test -d /opt/datavolume/teleport"
 check_cmd "routing helper present" "test -x /usr/local/sbin/teleport-routes.sh"
 
 echo "[6/8] Compose and config"
 check_cmd "service/docker-compose.yml" "test -f ${ROOT_DIR}/service/docker-compose.yml"
 check_cmd "config/teleport.yaml" "test -f ${ROOT_DIR}/config/teleport.yaml"
+check_cmd "postgresql config present" "grep -q 'type: postgresql' ${ROOT_DIR}/config/teleport.yaml"
+check_cmd "runtime config template present" "test -f ${ROOT_DIR}/ansible/roles/teleport_install/templates/teleport.yaml.j2"
+check_cmd "postgres Dockerfile present" "test -f ${ROOT_DIR}/postgres/Dockerfile"
+check_cmd "postgres bootstrap script present" "test -f ${ROOT_DIR}/postgres/initdb/01-bootstrap.sh"
 
 echo "[7/8] Network expectations"
 check_cmd "ens3 present" "ip link show ens3"

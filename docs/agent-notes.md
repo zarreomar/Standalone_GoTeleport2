@@ -2,7 +2,7 @@
 
 **Project:** Standalone GoTeleport on Docker Swarm with Dual-Interface Networking  
 **Status:** ✅ Artifact Generation Complete  
-**Last Updated:** 2026-05-01
+**Last Updated:** 2026-05-02
 
 ---
 
@@ -35,6 +35,16 @@
 **Implementation:** Global mode, Let's Encrypt ACME, health check integration  
 **Alternative Considered:** nginx-ingress (more complex), HAProxy (less Swarm-native)
 
+### PostgreSQL Teleport Backend
+**Why:** Teleport cluster state needs a real shared backend for multi-replica operation
+**Implementation:** PostgreSQL stores cluster state and audit events; MinIO stores session recordings through Teleport's S3 backend
+**Alternative Considered:** SQLite-only local backend, which does not fit the current Swarm replica model
+
+### Dockerized State Services
+**Why:** Keep the deployment self-contained and reproducible on the target host
+**Implementation:** PostgreSQL is built from `postgres/Dockerfile` with `wal2json`; MinIO is deployed in the Swarm stack and initialized with `minio-init`
+**Alternative Considered:** Managed external PostgreSQL/MinIO services, which would reduce portability for this repo
+
 ### Role-Based Ansible Structure
 **Why:** Idempotent, modular, reusable across environments  
 **Roles:**
@@ -65,12 +75,19 @@ Persistent via `teleport-routes.service` and `/usr/local/sbin/teleport-routes.sh
 ### Health Check Strategy
 - Traefik: Global mode (runs on all manager nodes)
 - GoTeleport: 3 replicas with 30s health checks
-- Dashboard: localhost:8080 (accessible only on Traefik node)
+- Dashboard: Traefik dashboard on `:8080`; Teleport web health via `/webapi/ping`
+- Runtime Teleport config is rendered by Ansible into `/opt/datavolume/teleport/teleport.yaml`
 
 ### Certificate Management
 - Automatic renewal (Let's Encrypt ACME)
 - Stored in named volume (survives container restarts)
 - Dashboard logs certificate lifecycle
+
+### Storage Notes
+- PostgreSQL requires `wal2json` for cluster-state logical decoding
+- Session recordings are written to MinIO via S3-compatible storage
+- `config/teleport.yaml` is now a reference file; the rendered runtime config is the source of truth
+- Host prep now provisions `/opt/datavolume` bind-mount directories rather than host-side `/var/lib/teleport`
 
 ---
 
@@ -81,8 +98,11 @@ Persistent via `teleport-routes.service` and `/usr/local/sbin/teleport-routes.sh
 - `ansible/main.yml` - Complete rewrite with roles, validation, health checks
 
 ### Created (New)
+- `postgres/Dockerfile`
+- `postgres/initdb/01-bootstrap.sh`
 - `ansible/roles/teleport_install/tasks/main.yml`
 - `ansible/roles/teleport_install/templates/teleport.yaml.j2`
+- `ansible/roles/teleport_install/templates/traefik-teleport-transport.yml.j2`
 - `ansible/roles/network_setup/tasks/main.yml`
 - `ansible/group_vars/all.yml.example`
 - `QUICKSTART.md`
@@ -96,6 +116,7 @@ Persistent via `teleport-routes.service` and `/usr/local/sbin/teleport-routes.sh
 - `scripts/prepare_host_ubuntu.sh` - Ubuntu-user Swarm/bootstrap step
 - `scripts/validate.sh` - Quick local validation for packages, scripts, Docker, and Ansible
 - `docs/CHECKPOINT_2026-05-01.md` - Dated checkpoint for the host-preparation/doc update pass
+- `docs/CHECKPOINT_2026-05-02.md` - Dated checkpoint for the PostgreSQL/MinIO deployment rewrite
 
 ---
 
@@ -113,7 +134,7 @@ Persistent via `teleport-routes.service` and `/usr/local/sbin/teleport-routes.sh
 
 ### Deployment Options
 1. **Ansible (recommended):** `ansible-playbook -i localhost, -c local ansible/main.yml`
-2. **Manual:** `bash scripts/deploy.sh`
+2. **Manual wrapper:** `bash scripts/deploy.sh`
 3. **Docker:** `docker stack deploy -c service/docker-compose.yml gotTeleport_stack`
 
 ### Post-Deployment
@@ -126,9 +147,9 @@ Persistent via `teleport-routes.service` and `/usr/local/sbin/teleport-routes.sh
 ## Known Limitations
 
 1. **Single-node testing:** Routing tables apply to single host; multi-node Swarm requires coordination
-2. **Storage:** Local driver for volumes; recommend NFS/shared storage for true HA
+2. **Storage:** Bind mounts keep the stack self-contained, but they still live on one host
 3. **ACME staging:** Uses production by default; switch to staging for testing to avoid rate limits
-4. **Dashboard security:** Traefik dashboard (port 8080) only accessible on localhost
+4. **Dashboard security:** Traefik dashboard (port 8080) is exposed by the stack and should be access-controlled at the host/network layer
 
 ---
 
@@ -154,7 +175,7 @@ Persistent via `teleport-routes.service` and `/usr/local/sbin/teleport-routes.sh
 - ✅ Both network interfaces exist with IPs
 - ✅ Docker/Swarm initialized
 - ✅ Ports 80/443/3022 available
-- ✅ 50GB+ disk space on /var/lib
+- ✅ 50GB+ disk space on /opt/datavolume
 - ✅ DNS A record points to ens3 public IP
 - ✅ All artifacts present and valid YAML
 
@@ -224,6 +245,20 @@ Full troubleshooting in DEPLOYMENT_RUNBOOK.md → Troubleshooting section
 - Added `scripts/validate.sh` to verify the host-prep and deployment prerequisites
 - Updated Quick Start, Runbook, and Validation Checklist with package-install instructions
 - Standardized the Community Edition Teleport image reference in the deployment docs
+
+---
+
+## Checkpoint 2026-05-02
+
+**Checkpoint Date:** 2026-05-02
+**Checkpoint Focus:** PostgreSQL/MinIO deployment rewrite and Ansible-driven wrapper flow
+
+### What Changed
+- Added a dockerized PostgreSQL backend with `wal2json` support
+- Added MinIO-backed shared session storage for Teleport recordings
+- Updated the Teleport runtime config to be rendered by Ansible into `/opt/datavolume/teleport/teleport.yaml`
+- Turned `scripts/deploy.sh` into an Ansible wrapper so the shell entrypoint uses the same deployment path
+- Cleaned up the host-path story so `/opt/datavolume` is the canonical host storage root
 
 ### Current State
 - Ansible check mode passes on the local workspace
